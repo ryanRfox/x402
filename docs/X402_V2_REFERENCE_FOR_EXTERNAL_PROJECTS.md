@@ -873,7 +873,7 @@ For complete documentation, see:
 - **Core Types**: `/docs/03-sdk-reference/core/types.md`
 - **Quick Starts**: `/docs/00-getting-started/`
 - **Tutorials**: `/docs/07-tutorials/`
-- **Reference Implementations**: `/docs/07-reference-implementations/`
+- **Reference Implementations**: `/docs/10-reference-implementations/`
 
 ---
 
@@ -892,7 +892,7 @@ If something doesn't work as documented here:
 
 1. **First**: Verify you're using the patterns exactly as shown
 2. **Second**: Check the official docs in `/docs/`
-3. **Third**: Review reference implementations in `/docs/07-reference-implementations/`
+3. **Third**: Review reference implementations in `/docs/10-reference-implementations/`
 
 **This document is the source of truth for x402 v2 SDK usage.**
 

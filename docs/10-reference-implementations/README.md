@@ -157,7 +157,7 @@ To add a new reference implementation:
    ```
 
 6. **Document your implementation**:
-   - Add documentation in `/docs/07-reference-implementations/`
+   - Add documentation in `/docs/10-reference-implementations/`
    - Follow the structure of existing implementation docs
 
 ## Related Documentation

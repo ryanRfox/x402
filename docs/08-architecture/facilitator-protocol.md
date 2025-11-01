@@ -672,7 +672,7 @@ Test scenarios should cover:
 ### TypeScript Facilitator
 
 **Path**: `/e2e/facilitators/typescript/`
-**Documentation**: [TypeScript Facilitator](../07-reference-implementations/typescript-facilitator.md)
+**Documentation**: [TypeScript Facilitator](../10-reference-implementations/typescript-facilitator.md)
 
 **Features**:
 - Full protocol compliance
@@ -683,7 +683,7 @@ Test scenarios should cover:
 ### Go Facilitator
 
 **Path**: `/e2e/facilitators/go/`
-**Documentation**: [Go Facilitator](../07-reference-implementations/go-facilitator.md)
+**Documentation**: [Go Facilitator](../10-reference-implementations/go-facilitator.md)
 
 **Features**:
 - Real blockchain operations
@@ -715,8 +715,8 @@ Clients and servers specify supported versions:
 
 ## Related Documentation
 
-- [TypeScript Facilitator](../07-reference-implementations/typescript-facilitator.md) - TypeScript reference implementation
-- [Go Facilitator](../07-reference-implementations/go-facilitator.md) - Go reference implementation
+- [TypeScript Facilitator](../10-reference-implementations/typescript-facilitator.md) - TypeScript reference implementation
+- [Go Facilitator](../10-reference-implementations/go-facilitator.md) - Go reference implementation
 - [Core Types](../03-sdk-reference/core/types.md) - Type definitions
 - [Payment Flows](../02-protocol-flows/) - End-to-end payment sequences
 - [EVM Mechanism](../03-sdk-reference/mechanisms/evm.md) - EVM-specific details
