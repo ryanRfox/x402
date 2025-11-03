@@ -438,14 +438,59 @@ curl -i http://localhost:4021/protected
 **Response:**
 ```
 HTTP/1.1 402 Payment Required
-PAYMENT-OPTIONS: {"scheme":"exact","payTo":"0x742d35Cc...","price":...}
+PAYMENT-REQUIRED: eyJ4NDAyVmVyc2lvbiI6MiwiZXJyb3IiOiJQYXltZW50IHJlcXVpcmVkIi...
 
+{}
+```
+
+**The `PAYMENT-REQUIRED` header** contains base64-encoded JSON with the payment requirements. To decode it:
+
+```bash
+# Extract and decode the header
+curl -is http://localhost:4021/protected \
+  | grep -o 'PAYMENT-REQUIRED: [^[:space:]]*' \
+  | cut -d' ' -f2 \
+  | base64 -d \
+  | jq .
+```
+
+**Decoded payment requirements:**
+```json
 {
-  "error": "Payment required"
+  "x402Version": 2,
+  "error": "Payment required",
+  "resource": {
+    "url": "http://localhost:4021/protected",
+    "description": "",
+    "mimeType": ""
+  },
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "eip155:84532",
+      "amount": "1000",
+      "asset": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      "payTo": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+      "maxTimeoutSeconds": 300,
+      "extra": {
+        "name": "USDC",
+        "version": "2"
+      }
+    }
+  ]
 }
 ```
 
-**Success!** The server correctly requires payment for the protected endpoint.
+**Key fields explained:**
+- `x402Version` - Protocol version (2)
+- `amount` - Required payment in token units (1000 = 0.001 USDC with 6 decimals)
+- `asset` - Token contract address (USDC on Base Sepolia)
+- `payTo` - Recipient wallet address
+- `scheme` - Payment scheme (exact = exact amount)
+- `network` - Blockchain network (eip155:84532 = Base Sepolia)
+- `maxTimeoutSeconds` - How long the payment authorization is valid (300 seconds = 5 minutes)
+
+**Success!** The server correctly requires payment for the protected endpoint and communicates the requirements via the encoded header.
 
 ---
 
