@@ -367,20 +367,17 @@ The `wrapFetchWithPayment` wrapper handles the complete payment flow automatical
 ```mermaid
 sequenceDiagram
     participant Client as Client Code
-    participant FetchLib as fetchWithPayment<br/>(Library)
     participant Server as API Server
     participant Facilitator as Facilitator
 
-    Client->>FetchLib: fetchWithPayment(url, {method: "GET"})
+    Note over Client: Call fetchWithPayment(url)
 
-    FetchLib->>Server: GET /protected<br/>(No payment yet)
-    Server->>FetchLib: 402 Payment Required<br/>PAYMENT-REQUIRED header:<br/>base64({version, scheme,<br/>network, amount, ...})
+    Client->>Server: GET /protected<br/>(No payment yet)
+    Server->>Client: 402 Payment Required<br/>PAYMENT-REQUIRED header:<br/>base64({version, scheme,<br/>network, amount, ...})
 
-    Note over FetchLib: Intercepts 402 response<br/>Decodes payment requirements
+    Note over Client: Library intercepts 402<br/>ExactEvmClient creates<br/>EIP-712 signature
 
-    FetchLib->>FetchLib: ExactEvmClient creates<br/>EIP-712 signature
-
-    FetchLib->>Server: GET /protected (Retry)<br/>PAYMENT-SIGNATURE header:<br/>base64(signature + payload)
+    Client->>Server: GET /protected (Retry)<br/>PAYMENT-SIGNATURE header:<br/>base64(signature + payload)
 
     Server->>Facilitator: verify(payload, requirements)
     Facilitator->>Facilitator: Check EIP-712 signature<br/>Verify payer + amount
@@ -390,21 +387,22 @@ sequenceDiagram
     Facilitator->>Facilitator: Execute transferWithAuthorization()<br/>on-chain via EVM
     Facilitator->>Server: {txHash: "0x..."}
 
-    Server->>FetchLib: 200 OK<br/>Protected data<br/>PAYMENT-RESPONSE header:<br/>base64({success, txHash, ...})
+    Server->>Client: 200 OK<br/>Protected data<br/>PAYMENT-RESPONSE header:<br/>base64({success, txHash, ...})
 
-    FetchLib->>Client: Response (200 OK)
+    Note over Client: Library decodes response<br/>Returns final result
 ```
 
 **How it works:**
 1. **First request (no payment)** - Client calls `fetchWithPayment(url)` which makes initial request
 2. **402 response** - Server responds with payment requirements in `PAYMENT-REQUIRED` header (base64-encoded)
-3. **Signature creation** - Library uses `ExactEvmClient` to create EIP-712 signature internally
+3. **Signature creation** - Library internally uses `ExactEvmClient` to create EIP-712 signature
 4. **Retry with payment** - Library automatically retries with `PAYMENT-SIGNATURE` header containing signature
 5. **Verification** - Server sends to Facilitator to verify signature
 6. **Settlement** - Facilitator executes `transferWithAuthorization()` on-chain
 7. **Success response** - Server returns 200 OK with `PAYMENT-RESPONSE` header containing transaction hash
+8. **Result handling** - Library decodes response and returns to caller
 
-**Key insight:** The payment flow is completely hidden from your code - `wrapFetchWithPayment` handles all steps automatically!
+**Key insight:** The payment flow is completely transparent to your code - `wrapFetchWithPayment` handles all steps (interception, signing, retry) automatically!
 
 ### 4. Response Handling
 
