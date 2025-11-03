@@ -352,13 +352,15 @@ const fetchWithPayment = wrapFetchWithPayment(fetch, {
 
 **What happens here:**
 - `wrapFetchWithPayment` wraps the native `fetch` function with payment interceptor logic
+- The wrapper registers your `ExactEvmClient` instance for the `eip155:*` network (all EVM chains)
 - The wrapper **doesn't know upfront** which endpoints require payment - it discovers this when the server responds with `402 Payment Required`
 - When a 402 is detected, the wrapper automatically:
-  - Decodes the payment requirements from the response header
-  - Creates a payment signature using the configured `ExactEvmClient`
-  - Retries the request with the payment signature
-- `network: "eip155:*"` means "support all EVM chains"
-- `ExactEvmClient` implements the exact payment scheme for EVM (uses EIP-712 signatures)
+  - Extracts payment requirements from the response header
+  - Looks up the appropriate scheme client (your `ExactEvmClient`) from its registry
+  - Calls `createPaymentPayload()` on that client to create the signature
+  - Retries the request with the payment signature header
+- `network: "eip155:*"` means "support all EVM chains" (wildcard matching)
+- `ExactEvmClient` implements the exact payment scheme for EVM (creates EIP-712 signatures)
 
 ### 3. Payment Flow
 
@@ -366,43 +368,185 @@ The `wrapFetchWithPayment` wrapper handles the complete payment flow automatical
 
 ```mermaid
 sequenceDiagram
-    participant Client as Client Code
+    participant YourCode as Your Code
+    participant Wrapper as wrapFetchWithPayment
+    participant HTTPClient as x402HTTPClient
+    participant SchemeClient as ExactEvmClient<br/>(from registry)
     participant Server as API Server
     participant Facilitator as Facilitator
 
-    Note over Client: Call fetchWithPayment(url)
+    YourCode->>Wrapper: fetchWithPayment(url)
+    Wrapper->>Server: 1. GET /protected<br/>(initial request)
+    Server->>Wrapper: 2. 402 Payment Required<br/>PAYMENT-REQUIRED header
 
-    Client->>Server: GET /protected<br/>(No payment yet)
-    Server->>Client: 402 Payment Required<br/>PAYMENT-REQUIRED header:<br/>base64({version, scheme,<br/>network, amount, ...})
+    Wrapper->>HTTPClient: 3. Parse & select<br/>payment requirements
+    HTTPClient->>SchemeClient: 4. createPaymentPayload()
+    Note over SchemeClient: Sign with private key<br/>using signTypedData()
+    SchemeClient->>HTTPClient: 5. paymentPayload<br/>with EIP-712 signature
+    HTTPClient->>Wrapper: 6. Encode PAYMENT-SIGNATURE<br/>header
 
-    Note over Client: Library intercepts 402<br/>ExactEvmClient creates<br/>EIP-712 signature
+    Wrapper->>Server: 7. GET /protected (Retry)<br/>PAYMENT-SIGNATURE header
+    Server->>Facilitator: 8. verify(payload)
+    Facilitator->>Facilitator: Verify signature & funds
+    Facilitator->>Server: 9. Verified ✓
 
-    Client->>Server: GET /protected (Retry)<br/>PAYMENT-SIGNATURE header:<br/>base64(signature + payload)
+    Server->>Facilitator: 10. settle(payload)
+    Facilitator->>Facilitator: Execute<br/>transferWithAuthorization()
+    Facilitator->>Server: 11. {txHash, success}
 
-    Server->>Facilitator: verify(payload, requirements)
-    Facilitator->>Facilitator: Check EIP-712 signature<br/>Verify payer + amount
-    Facilitator->>Server: {success: true}
-
-    Server->>Facilitator: settle(payload, requirements)
-    Facilitator->>Facilitator: Execute transferWithAuthorization()<br/>on-chain via EVM
-    Facilitator->>Server: {txHash: "0x..."}
-
-    Server->>Client: 200 OK<br/>Protected data<br/>PAYMENT-RESPONSE header:<br/>base64({success, txHash, ...})
-
-    Note over Client: Library decodes response<br/>Returns final result
+    Server->>Wrapper: 12. 200 OK<br/>Protected data<br/>PAYMENT-RESPONSE header
+    Wrapper->>YourCode: 13. Response object
 ```
 
-**How it works:**
-1. **First request (no payment)** - Client calls `fetchWithPayment(url)` which makes initial request
-2. **402 response** - Server responds with payment requirements in `PAYMENT-REQUIRED` header (base64-encoded)
-3. **Signature creation** - Library internally uses `ExactEvmClient` to create EIP-712 signature
-4. **Retry with payment** - Library automatically retries with `PAYMENT-SIGNATURE` header containing signature
-5. **Verification** - Server sends to Facilitator to verify signature
-6. **Settlement** - Facilitator executes `transferWithAuthorization()` on-chain
-7. **Success response** - Server returns 200 OK with `PAYMENT-RESPONSE` header containing transaction hash
-8. **Result handling** - Library decodes response and returns to caller
+**How it works (by step number in diagram):**
 
-**Key insight:** The payment flow is completely transparent to your code - `wrapFetchWithPayment` handles all steps (interception, signing, retry) automatically!
+1. **Your code calls wrapper** - You call `fetchWithPayment(url)` from your code
+2. **Initial request** - Wrapper makes first request without payment
+3. **402 response** - Server responds with payment requirements
+4. **Parse & select** - Wrapper delegates to `x402HTTPClient` to parse the 402 response and select which payment method to use
+5. **Create payment** - `x402HTTPClient` looks up your registered `ExactEvmClient` from its scheme registry and calls `createPaymentPayload()`
+6. **Sign with private key** - `ExactEvmClient` creates an EIP-712 signature using your account's private key via `signTypedData()`
+7. **Encode header** - `x402HTTPClient` encodes the signature as a `PAYMENT-SIGNATURE` header
+8. **Retry request** - Wrapper makes second request with the `PAYMENT-SIGNATURE` header
+9. **Server verification** - Server sends the payload to Facilitator to verify the signature
+10. **Verify signature** - Facilitator checks that only the payment owner could have created this signature
+11. **Settlement** - Facilitator executes the on-chain transaction to move funds
+12. **Settlement result** - Facilitator returns transaction hash to server
+13. **Success response** - Server returns 200 OK with `PAYMENT-RESPONSE` header containing details
+14. **Return to caller** - Wrapper returns the successful response to your code
+
+**Key insight:** The payment flow is completely transparent to your code - `wrapFetchWithPayment` handles all steps including scheme lookup, private key signing, and retry automatically!
+
+### 3b. How the Wrapper Works Internally
+
+When you call `wrapFetchWithPayment()`, here's exactly what happens:
+
+**Setup Phase (when you create the wrapper):**
+
+```typescript
+const fetchWithPayment = wrapFetchWithPayment(fetch, {
+  schemes: [
+    {
+      network: "eip155:*",
+      client: new ExactEvmClient(account),  // ← Your client is registered
+    },
+  ],
+});
+```
+
+The wrapper:
+1. Creates an internal `x402HTTPClient` registry
+2. Registers your `ExactEvmClient` for the `eip155:*` network
+3. Stores this registry for later use
+4. Returns a wrapped `fetch` function that intercepts 402 responses
+
+**Runtime Phase (when you call the wrapped function):**
+
+```typescript
+const response = await fetchWithPayment(url, { method: "GET" });
+```
+
+Step-by-step execution:
+
+1. **Initial request** (line 102 of wrapper)
+   ```typescript
+   const response = await fetch(input, init);  // Call original fetch
+   ```
+   - Makes the request without any payment header
+   - Server responds with `402 Payment Required`
+
+2. **Check status** (lines 104-106)
+   ```typescript
+   if (response.status !== 402) return response;  // Not payment required
+   ```
+   - If not 402, returns immediately
+
+3. **Parse requirements** (lines 108-130)
+   ```typescript
+   const paymentRequired = client.getPaymentRequiredResponse(responseHeaders, body);
+   ```
+   - Extracts `PAYMENT-REQUIRED` header from response
+   - Decodes base64 to get payment details (network, amount, asset, etc.)
+
+4. **Select scheme** (lines 133-136)
+   ```typescript
+   const selectedPaymentRequirements = client.selectPaymentRequirements(
+     paymentRequired.x402Version,
+     paymentRequired.accepts
+   );
+   ```
+   - Determines which payment scheme to use based on network
+
+5. **⭐ CREATE PAYMENT** (lines 141-144) - **This is where your private key is used**
+   ```typescript
+   paymentPayload = await client.createPaymentPayload(
+     paymentRequired.x402Version,
+     selectedPaymentRequirements
+   );
+   ```
+   - Calls your `ExactEvmClient.createPaymentPayload()`
+   - Your client calls `signAuthorization()`
+   - Which calls `this.signer.signTypedData(domain, types, message)`
+   - Which uses your viem `account`'s private key to create an EIP-712 signature
+   - **Result:** A cryptographic proof that only you could create
+
+6. **Encode header** (lines 149-150)
+   ```typescript
+   const paymentHeaders = client.encodePaymentSignatureHeader(paymentPayload);
+   ```
+   - Converts the signature to a `PAYMENT-SIGNATURE` header (base64-encoded)
+
+7. **Prepare retry request** (lines 163-171)
+   ```typescript
+   const newInit = {
+     ...init,
+     headers: {
+       ...(init.headers || {}),
+       ...paymentHeaders,  // Add PAYMENT-SIGNATURE header
+     },
+     __is402Retry: true,  // Prevent infinite loops
+   };
+   ```
+   - Creates a new request identical to the first one
+   - But adds the `PAYMENT-SIGNATURE` header with your proof
+
+8. **Retry with payment** (lines 174-175)
+   ```typescript
+   const secondResponse = await fetch(input, newInit);
+   return secondResponse;
+   ```
+   - Makes the request again, this time WITH the payment proof
+   - Server verifies the signature
+   - If valid, processes the request and sends 200 OK with `PAYMENT-RESPONSE` header
+   - Returns the successful response to your code
+
+**The Scheme Registry:**
+
+The key insight is that `wrapFetchWithPayment` maintains a registry of scheme clients:
+
+```
+Network Pattern → SchemeNetworkClient
+eip155:*      → ExactEvmClient (your instance)
+solana:*      → ExactSvmClient (if you added it)
+```
+
+When a 402 comes back with `network: "eip155:84532"`, the wrapper:
+- Matches it against registered networks ("eip155:*" matches!)
+- Looks up the corresponding scheme client (your `ExactEvmClient`)
+- Calls that client to create the payment
+
+If you register multiple scheme clients:
+
+```typescript
+const fetchWithPayment = wrapFetchWithPayment(fetch, {
+  schemes: [
+    { network: "eip155:*", client: new ExactEvmClient(evmAccount) },
+    { network: "solana:*", client: new ExactSvmClient(solanaKeypair) },
+  ],
+});
+```
+
+The wrapper can handle payments on both EVM chains AND Solana!
 
 ### 4. Response Handling
 
