@@ -51,9 +51,12 @@ Before you begin:
 - ✅ [Installation & Setup](./installation.md) completed
 - ✅ Node.js >= 18.0.0 installed
 - ✅ Wallet with private key ready
-- ✅ Testnet USDC available (for Base Sepolia)
+- ✅ **Testnet funds on Base Sepolia** - ETH for gas fees and USDC for payments
+- ✅ **x402 payment server running** - Follow the [Server Quick Start](./quick-start-server.md) first
 
-**Don't have a setup yet?** Start with [Installation & Setup](./installation.md).
+**Don't have testnet funds?** Get them from the [Base Sepolia Faucet](https://docs.base.org/base-chain/tools/network-faucets).
+
+**Don't have a setup yet?** Start with [Installation & Setup](./installation.md), then set up a server using the [Server Quick Start](./quick-start-server.md).
 
 ---
 
@@ -271,10 +274,10 @@ EVM_ADDRESS=0x742d35Cc6634C0532925a3b844Bc454e4438f44e EVM_PRIVATE_KEY=0xac0974b
 ### Run Your Client
 
 ```bash
-pnpm start
+npm start
 ```
 
-**Expected output:**
+**Expected output (with funded account):**
 
 ```
 x402 Client Demo
@@ -308,6 +311,17 @@ Payment Details:
 
 ✅ Payment completed successfully
 ```
+
+**Note:** If your account doesn't have USDC funds on Base Sepolia, the payment will fail but the request will still complete. You'll see:
+```json
+{
+  "success": false,
+  "errorReason": "transaction_failed",
+  "network": "eip155:84532"
+}
+```
+
+**Get testnet funds:** Visit the [Base Sepolia Faucet](https://docs.base.org/base-chain/tools/network-faucets) to fund your account with testnet ETH and USDC.
 
 ---
 
