@@ -90,12 +90,22 @@ touch src/client.ts
 
 ## Step 2: Install Dependencies
 
-Install the x402 client SDK and required dependencies:
+Install the x402 client SDK and required dependencies using local file paths:
 
 ```bash
-pnpm add @x402/fetch @x402/evm viem dotenv
-pnpm add -D tsx typescript @types/node
+# ⚠️ IMPORTANT: x402 v2 packages are NOT on npm
+# Use file: paths to reference local packages in your x402 repository
+
+npm install \
+  file:../typescript/packages/http/fetch \
+  file:../typescript/packages/mechanisms/evm \
+  viem dotenv
+
+npm install -D \
+  tsx typescript @types/node
 ```
+
+**Why file: paths?** The x402 v2 SDK packages are not yet published to npm. They exist only in the local repository. Once v2.0.0 is officially released, these will be available on npm and you can use standard `npm install @x402/fetch` syntax.
 
 **What each package does:**
 - `@x402/fetch` - Wraps native fetch with payment handling
@@ -103,6 +113,15 @@ pnpm add -D tsx typescript @types/node
 - `viem` - Ethereum account and signature utilities
 - `dotenv` - Environment variable management
 - `tsx` - TypeScript execution (dev dependency)
+
+**Note**: Adjust the file paths if your project is in a different location relative to the x402 repository. The above example assumes you have:
+```
+x402/
+├── typescript/packages/
+│   ├── http/fetch/
+│   └── mechanisms/evm/
+└── x402-client-demo/        ← Your project here
+```
 
 ---
 
