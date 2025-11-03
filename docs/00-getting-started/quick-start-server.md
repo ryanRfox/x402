@@ -367,18 +367,18 @@ app.post("/close", (req, res) => {
 // Start the server
 app.listen(parseInt(PORT), () => {
   console.log(`
-╔════════════════════════════════════════════════════════╗
-║              x402 Payment Server Demo                  ║
-╠════════════════════════════════════════════════════════╣
-║  Server:     http://localhost:${PORT}                      ║
-║  Network:    ${NETWORK}                       ║
-║  Payee:      ${PAYEE_ADDRESS}     ║
-║                                                        ║
-║  Endpoints:                                            ║
-║  • GET  /protected  (requires $0.001 USDC)            ║
-║  • GET  /public     (free access)                     ║
-║  • GET  /health     (server status)                   ║
-╚════════════════════════════════════════════════════════╝
++========================================================+
+|              x402 Payment Server Demo                  |
++========================================================+
+|  Server:     http://localhost:${PORT}                      |
+|  Network:    ${NETWORK}                       |
+|  Payee:      ${PAYEE_ADDRESS}     |
+|                                                        |
+|  Endpoints:                                            |
+|  * GET  /protected  (requires $0.001 USDC)            |
+|  * GET  /public     (free access)                     |
+|  * GET  /health     (server status)                   |
++========================================================+
   `);
   console.log('Ready to accept payments!\n');
 });
@@ -399,18 +399,18 @@ pnpm start
 ```
 Facilitator account: 0x742d35Cc6634C0532925a3b844Bc454e4438f44e
 
-╔════════════════════════════════════════════════════════╗
-║              x402 Payment Server Demo                  ║
-╠════════════════════════════════════════════════════════╣
-║  Server:     http://localhost:4021                     ║
-║  Network:    eip155:84532                              ║
-║  Payee:      0x742d35Cc6634C0532925a3b844Bc454e4438f44e║
-║                                                        ║
-║  Endpoints:                                            ║
-║  • GET  /protected  (requires $0.001 USDC)            ║
-║  • GET  /public     (free access)                     ║
-║  • GET  /health     (server status)                   ║
-╚════════════════════════════════════════════════════════╝
++========================================================+
+|              x402 Payment Server Demo                  |
++========================================================+
+|  Server:     http://localhost:4021                     |
+|  Network:    eip155:84532                              |
+|  Payee:      0x742d35Cc6634C0532925a3b844Bc454e4438f44e|
+|                                                        |
+|  Endpoints:                                            |
+|  * GET  /protected  (requires $0.001 USDC)            |
+|  * GET  /public     (free access)                     |
+|  * GET  /health     (server status)                   |
++========================================================+
 
 Ready to accept payments!
 ```
