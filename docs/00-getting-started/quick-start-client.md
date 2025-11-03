@@ -474,18 +474,133 @@ Error: Insufficient funds for gas
 
 ### Enable Debug Logging
 
-Add debug output to understand the payment flow:
+Add detailed logging to trace the complete payment flow (initial request → 402 response → retry with payment):
 
 ```typescript
-// Add before wrapFetchWithPayment
+import { config } from 'dotenv';
+import { wrapFetchWithPayment, decodePaymentResponseHeader } from '@x402/fetch';
+import { privateKeyToAccount } from 'viem/accounts';
+import { ExactEvmClient } from '@x402/evm';
+
+config();
+
+const account = privateKeyToAccount(process.env.EVM_PRIVATE_KEY as `0x${string}`);
+const url = `${process.env.RESOURCE_SERVER_URL}${process.env.ENDPOINT_PATH}`;
+
+// Intercept fetch to log all requests/responses
 const originalFetch = fetch;
-fetch = async (url, init) => {
-  console.log('🔍 Fetch:', url, init?.headers);
+let requestCount = 0;
+
+const loggingFetch = async (url: string, init?: RequestInit) => {
+  requestCount++;
+  const requestNum = requestCount;
+
+  console.log(`\n[REQUEST ${requestNum}] → ${init?.method || 'GET'} ${url}`);
+  if (init?.headers) {
+    console.log('Headers:', init.headers);
+  }
+
   const response = await originalFetch(url, init);
-  console.log('📥 Response:', response.status, Object.fromEntries(response.headers));
-  return response;
+
+  console.log(`[RESPONSE ${requestNum}] ← Status: ${response.status}`);
+  console.log('Response Headers:');
+  for (const [key, value] of response.headers) {
+    if (key.toLowerCase().includes('payment')) {
+      console.log(`  ${key}: ${value.substring(0, 80)}...`);
+    } else {
+      console.log(`  ${key}: ${value}`);
+    }
+  }
+
+  // Decode payment headers if present
+  const paymentRequired = response.headers.get('PAYMENT-REQUIRED');
+  if (paymentRequired) {
+    try {
+      const decoded = JSON.parse(Buffer.from(paymentRequired, 'base64').toString());
+      console.log('  Decoded PAYMENT-REQUIRED:', JSON.stringify(decoded, null, 2));
+    } catch (e) {
+      console.log('  (Could not decode PAYMENT-REQUIRED)');
+    }
+  }
+
+  const paymentResponse = response.headers.get('PAYMENT-RESPONSE');
+  if (paymentResponse) {
+    try {
+      const decoded = decodePaymentResponseHeader(paymentResponse);
+      console.log('  Decoded PAYMENT-RESPONSE:', JSON.stringify(decoded, null, 2));
+    } catch (e) {
+      console.log('  (Could not decode PAYMENT-RESPONSE)');
+    }
+  }
+
+  return response.clone();
 };
+
+const fetchWithPayment = wrapFetchWithPayment(loggingFetch, {
+  schemes: [
+    {
+      network: "eip155:*",
+      client: new ExactEvmClient(account),
+    },
+  ],
+});
+
+// Make request - will log all steps
+console.log('Starting payment flow...\n');
+
+fetchWithPayment(url, { method: "GET" })
+  .then(async response => {
+    const data = await response.json();
+    console.log('\n[FINAL RESULT]');
+    console.log('Status:', response.status);
+    console.log('Data:', JSON.stringify(data, null, 2));
+  })
+  .catch(error => {
+    console.error('\n[ERROR]', error.message);
+  });
 ```
+
+**Expected output:**
+```
+Starting payment flow...
+
+[REQUEST 1] → GET http://localhost:4021/protected
+Headers: undefined
+[RESPONSE 1] ← Status: 402
+Response Headers:
+  payment-required: eyJ4NDAyVmVyc2lvbiI6MiwgInNjaGVtZSI6ICJleGFjdCIs...
+  Decoded PAYMENT-REQUIRED: {
+    "x402Version": 2,
+    "scheme": "exact",
+    "network": "eip155:84532",
+    "amount": "1000",
+    ...
+  }
+
+[REQUEST 2] → GET http://localhost:4021/protected
+Headers: payment-signature: eyJzaWduYXR1cmUiOiAiMHhhYmMxMjMuLi4iLCAicGF5bG9hZCI6IH...
+[RESPONSE 2] ← Status: 200
+Response Headers:
+  payment-response: eyJzdWNjZXNzIjogdHJ1ZSwgInRyYW5zYWN0aW9uIjog...
+  Decoded PAYMENT-RESPONSE: {
+    "success": true,
+    "transaction": "0xef210f1b...",
+    "network": "eip155:84532",
+    ...
+  }
+
+[FINAL RESULT]
+Status: 200
+Data: {
+  "message": "Protected endpoint accessed successfully",
+  ...
+}
+```
+
+**Key observations:**
+- Request 1: No payment header → receives 402 with payment requirements
+- Request 2: Payment signature header added → receives 200 with payment confirmation
+- Both requests logged showing the complete flow
 
 ### Check Network Configuration
 
