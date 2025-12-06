@@ -8,6 +8,18 @@ You are extending x402 to support ANY ERC-20 token using Uniswap's Permit2. This
 
 **Key insight:** Use **SignatureTransfer** (not AllowanceTransfer) for payment settlement - it's more secure for one-time payment signatures.
 
+## Local Development (V2 SDK)
+
+**CRITICAL**: Never install x402 packages from npm - they are V1.
+
+See `docs/LOCAL-DEVELOPMENT.md` for full details. Quick reference:
+
+| Location | Protocol | Example |
+|----------|----------|---------|
+| Inside monorepo | `workspace:*` | `"@x402/core": "workspace:*"` |
+| Outside monorepo | `file:` | `"@x402/core": "file:../typescript/packages/core"` |
+| npm | **NEVER** | Do not use npm for x402 packages |
+
 ## Source of Truth
 
 **CRITICAL**: The authoritative branch is `upstream/development-v2`. Always verify patterns against actual source code.
