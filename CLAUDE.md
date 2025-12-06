@@ -274,6 +274,50 @@ Use CAIP-2 format for all network references:
 | Base Mainnet | `eip155:8453` |
 | Ethereum Mainnet | `eip155:1` |
 
+## Foundry Toolchain
+
+This project uses **Foundry** for Ethereum development. Foundry provides:
+
+| Tool | Purpose |
+|------|---------|
+| `forge` | Compile, test, and deploy Solidity contracts |
+| `anvil` | Local Ethereum node (like Ganache/Hardhat node) |
+| `cast` | CLI for contract interaction and chain queries |
+| `chisel` | Solidity REPL for quick experiments |
+
+### Install Foundry
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+```
+
+### Essential Foundry Commands
+
+```bash
+# Compilation
+forge build                          # Compile all contracts
+forge build --watch                  # Watch mode
+
+# Testing
+forge test                           # Run all tests
+forge test -vvv                      # Verbose output
+forge test --match-test testName     # Run specific test
+
+# Deployment
+forge create ContractName --rpc-url $RPC --private-key $KEY
+forge script script/Deploy.s.sol --rpc-url $RPC --broadcast
+
+# Contract Interaction
+cast call $ADDR "balanceOf(address)" $USER --rpc-url $RPC
+cast send $ADDR "transfer(address,uint256)" $TO $AMT --rpc-url $RPC --private-key $KEY
+
+# Chain Queries
+cast balance $ADDR --rpc-url $RPC
+cast receipt $TX_HASH --rpc-url $RPC
+cast chain-id --rpc-url $RPC
+```
+
 ## Anvil Integration
 
 ### Start with Fork (Recommended)
@@ -408,6 +452,36 @@ Sign commits: `git commit -s -m "..."`
 2. **How are schemes registered?** → Read `typescript/packages/core/src/client/x402Client.ts`
 3. **What's the payload format?** → Read `typescript/packages/core/src/types/protocol.ts`
 4. **Permit2 details?** → [Uniswap Permit2 Docs](https://docs.uniswap.org/contracts/permit2/overview)
+
+## Foundry MCP Server
+
+A Foundry MCP server is available for enhanced Anvil/Forge/Cast integration.
+
+**Package:** `@pranesh.asp/foundry-mcp-server`
+
+### Available MCP Tools
+
+| Category | Tools |
+|----------|-------|
+| **Anvil** | `anvil_start`, `anvil_stop`, `anvil_status` |
+| **Cast** | `cast_call`, `cast_send`, `cast_balance`, `cast_receipt`, `cast_storage`, `cast_logs` |
+| **Forge** | `forge_script`, `install_dependency` |
+| **Files** | `create_solidity_file`, `read_file`, `list_files` |
+| **Utils** | `convert_eth_units`, `compute_address`, `contract_size`, `estimate_gas` |
+
+### Configuration
+
+If the MCP server is configured, prefer using MCP tools over raw bash commands:
+
+```
+# Instead of:
+anvil --fork-url https://sepolia.base.org
+
+# Use MCP tool:
+anvil_start with fork_url parameter
+```
+
+See `.cursor/mcp.json` for configuration.
 
 ## Research Pattern: GitHub CLI over WebFetch
 

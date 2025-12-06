@@ -137,7 +137,7 @@ bytes32 constant PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
 );
 ```
 
-## Anvil Setup Guide
+## Foundry Setup
 
 ### Install Foundry
 
@@ -145,6 +145,29 @@ bytes32 constant PERMIT_TRANSFER_FROM_TYPEHASH = keccak256(
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
 ```
+
+Verify installation:
+```bash
+forge --version    # Solidity compiler & testing
+anvil --version    # Local Ethereum node
+cast --version     # CLI for contract interaction
+chisel --version   # Solidity REPL
+```
+
+### Foundry MCP Server (If Configured)
+
+If `.cursor/mcp.json` includes the Foundry MCP server, you have access to these tools:
+
+| Tool | Purpose |
+|------|---------|
+| `anvil_start` | Start local Ethereum node with options |
+| `anvil_stop` | Stop running Anvil instance |
+| `cast_call` | Read contract state |
+| `cast_send` | Send transaction |
+| `cast_balance` | Check ETH balance |
+| `forge_script` | Run Solidity scripts |
+
+Prefer MCP tools when available; fall back to bash commands if not.
 
 ### Start Anvil (Fork Mode Recommended)
 
