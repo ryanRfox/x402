@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # What is x402?
 
 x402 is a protocol and SDK for building HTTP APIs that accept cryptocurrency micropayments on a per-request basis. It extends the HTTP 402 Payment Required status code to enable seamless, cryptographically-verified payments for API access.

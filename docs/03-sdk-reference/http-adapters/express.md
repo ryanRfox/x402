@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # @x402/express
 
 Express middleware for adding x402 payment requirements to your Express.js applications.

@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Client Implementation
 
 This guide explains how to build custom x402 clients or extend the existing client implementation.

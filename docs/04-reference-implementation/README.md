@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Reference Implementation
 
 This section documents the x402 reference implementations. The repository contains two complementary sets of implementations:

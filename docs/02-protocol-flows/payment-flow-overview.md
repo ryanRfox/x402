@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Payment Flow Overview
 
 The x402 protocol implements a lightweight payment layer for HTTP resources through a standard request-response cycle with payment verification. This document describes the core payment flow that all x402 implementations follow.

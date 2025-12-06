@@ -1,4 +1,4 @@
-<!-- VERIFIED: d130db85 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Advanced Patterns
 
 This guide covers production-ready patterns for building sophisticated x402 applications. These patterns are demonstrated in the `examples/typescript/` directory.

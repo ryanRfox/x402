@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # @x402/svm
 
 Solana Virtual Machine (SVM) implementation of the x402 payment protocol using SPL Token transfers.
@@ -155,7 +155,7 @@ registerExactSvmScheme(client, { signer: keypair });
 > Multi-chain agentic finance support is planned for Solana via CDP SDK wallet integration.
 > - **Target**: Q4 2025 / Q1 2026
 >
-> [View Roadmap](../../../09-appendix/roadmap.md#next-queued)
+> [View Roadmap](../../09-appendix/roadmap.md#next-queued)
 
 ## Default Asset: USDC
 

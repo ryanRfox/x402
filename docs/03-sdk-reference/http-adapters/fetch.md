@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # @x402/fetch
 
 HTTP client adapter that wraps the native `fetch` API with automatic payment handling for the x402 protocol.

@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Client Architecture
 
 This document describes the reference client implementation that demonstrates how to build x402-enabled HTTP clients.

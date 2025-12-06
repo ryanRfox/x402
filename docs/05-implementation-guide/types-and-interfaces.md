@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Types and Interfaces
 
 Complete type reference for the x402 SDK.

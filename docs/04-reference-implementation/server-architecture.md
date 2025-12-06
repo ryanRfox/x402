@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Server Architecture
 
 This document describes the reference server implementation that demonstrates how to protect Express endpoints with x402 payment requirements.

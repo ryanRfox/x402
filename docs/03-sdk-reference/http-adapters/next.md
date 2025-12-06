@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 
 # Next.js HTTP Adapter
 
@@ -523,7 +523,7 @@ export const config = {
 
 ## See Also
 
-- [Core Package Documentation](../../../01-overview/packages.md#core) - Core types and concepts
+- [Core Package Documentation](../core/README.md) - Core types and concepts
 - [EVM Scheme Documentation](../mechanisms/evm.md) - EVM blockchain support
 - [SVM Scheme Documentation](../mechanisms/svm.md) - Solana support
 - [Payment Flow](../../02-protocol-flows/payment-flow-overview.md) - Full protocol flow diagram

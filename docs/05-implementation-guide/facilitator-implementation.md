@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Facilitator Implementation
 
 This guide explains how to build custom facilitators for payment verification and settlement.

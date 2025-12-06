@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Payment Schemes
 
 Payment schemes define how payments are authorized, verified, and settled on specific blockchain networks. This guide explains the scheme architecture and how to create custom schemes.
@@ -36,7 +36,7 @@ flowchart TB
 > - **Commerce** - Refunds and escrow for e-commerce (Q1 2026)
 > - **Deferred** - Pay-later flows (community contribution)
 >
-> [View Roadmap](../../09-appendix/roadmap.md#now-in-progress)
+> [View Roadmap](../09-appendix/roadmap.md#now-in-progress)
 
 ### Exact EVM Scheme
 

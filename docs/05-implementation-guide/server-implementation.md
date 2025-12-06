@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Server Implementation
 
 This guide explains how to build custom resource servers or extend the existing server implementation.

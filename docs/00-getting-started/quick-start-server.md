@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Server Quick Start
 
 This guide walks you through building an Express server with x402 payment requirements. You'll create endpoints that require payment before granting access.

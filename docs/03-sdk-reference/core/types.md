@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Types
 
 The core types module defines all TypeScript interfaces and type aliases used throughout the x402 protocol. These types ensure type safety across clients, servers, and facilitators, and are essential for understanding how payments flow through the system.

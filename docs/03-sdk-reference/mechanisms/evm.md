@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # @x402/evm
 
 EVM (Ethereum Virtual Machine) implementation of the x402 payment protocol using EIP-3009 TransferWithAuthorization.
@@ -180,7 +180,7 @@ interface TransferWithAuthorization {
 > - **Arbitrary Token Support** - Permit/Permit2 flows for non-EIP-3009 tokens (Q2 2026)
 > - **ERC-7710 On-Chain Delegations** - On-chain permission delegation (TBD)
 >
-> [View Roadmap](../../../09-appendix/roadmap.md#later-future)
+> [View Roadmap](../../09-appendix/roadmap.md#later-future)
 
 ## Default Asset: USDC
 

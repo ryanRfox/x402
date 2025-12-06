@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Appendix
 
 Supplementary documentation for the x402 protocol and SDK.

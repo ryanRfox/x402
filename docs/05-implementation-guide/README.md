@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Implementation Guide
 
 This section provides deep-dive documentation for developers who want to extend or customize x402 implementations beyond the standard SDK usage.

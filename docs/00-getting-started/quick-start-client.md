@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Client Quick Start
 
 This guide walks you through building a payment-enabled HTTP client. By the end, you'll be making requests to paid APIs where payments are handled automatically.

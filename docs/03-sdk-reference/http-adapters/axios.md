@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # @x402/axios
 
 Axios adapter that wraps an Axios instance with automatic x402 payment handling.

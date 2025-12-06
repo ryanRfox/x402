@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Facilitator Quick Start
 
 This guide shows how to run your own x402 facilitator service. A facilitator verifies payment signatures and settles payments on-chain.

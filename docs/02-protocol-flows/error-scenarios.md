@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Error Scenarios
 
 This document covers error handling in the x402 protocol, including common failure modes and recovery strategies for verification, settlement, and client-side payment creation errors.

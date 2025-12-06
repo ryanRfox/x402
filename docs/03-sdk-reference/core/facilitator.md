@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Facilitator Module
 
 The facilitator module provides server-side payment verification and settlement for the x402 protocol. A facilitator verifies signatures off-chain and broadcasts settlement transactions on-chain.
@@ -19,7 +19,7 @@ Most applications use the hosted facilitator at `https://facilitator.x402.org` r
 > - **Open-Source CDP Facilitator** - Production-grade reference implementation (Q4 2025)
 > - **Facilitator Router** - Multi-network/scheme/token routing (Late Q2 2026)
 >
-> [View Roadmap](../../../09-appendix/roadmap.md#next-queued)
+> [View Roadmap](../../09-appendix/roadmap.md#next-queued)
 
 ## x402Facilitator Class
 

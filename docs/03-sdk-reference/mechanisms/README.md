@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Payment Mechanisms
 
 > [!NOTE]
@@ -6,7 +6,7 @@
 > New blockchain mechanisms are planned:
 > - **Sui Support** - Sui blockchain integration (TBD, community-driven)
 >
-> [View Roadmap](../../../09-appendix/roadmap.md#later-future)
+> [View Roadmap](../../09-appendix/roadmap.md#later-future)
 
 ## Available Mechanisms
 

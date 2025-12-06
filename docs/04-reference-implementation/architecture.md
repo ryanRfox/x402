@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Reference Architecture
 
 This document describes the overall architecture of the x402 reference implementation used for end-to-end testing.

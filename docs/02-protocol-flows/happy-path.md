@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Happy Path Flow
 
 This document describes the complete happy path for an x402 payment flow, where a client successfully pays for a resource and receives the requested data.

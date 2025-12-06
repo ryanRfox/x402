@@ -1,3 +1,4 @@
+<!-- VERIFIED: 3c3e2168 -->
 # Documentation Style Guide
 
 This guide ensures consistency across all x402 documentation.
@@ -235,7 +236,7 @@ Use relative paths for internal links.
 ```markdown
 <!-- Good -->
 See [glossary](./09-appendix/glossary.md)
-See [architecture](../01-overview/architecture.md)
+See [architecture](./01-overview/architecture-overview.md)
 
 <!-- Avoid -->
 See [glossary](/docs/09-appendix/glossary.md)

@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Bazaar Extension
 
 The Bazaar extension enables service discovery for x402-protected APIs. It allows resource servers to declare metadata about their payment-protected endpoints, and facilitators to extract and catalog this metadata for client discovery.
@@ -24,7 +24,7 @@ Rather than requiring clients to read API documentation or maintain client-side 
 > - **ERC-8004 Integration** - Trustless Agents standard (Q1-Q2 2026)
 > - **Search and Categorization** - Search, categories, and ranking (TBD)
 >
-> [View Roadmap](../../../09-appendix/roadmap.md#next-queued)
+> [View Roadmap](../../09-appendix/roadmap.md#next-queued)
 
 ## Use Cases
 

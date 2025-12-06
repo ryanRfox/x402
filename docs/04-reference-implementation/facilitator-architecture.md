@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Facilitator Architecture
 
 This document describes the reference facilitator implementation that demonstrates how to build an x402 payment verification and settlement service.

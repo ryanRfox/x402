@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Client Module
 
 The client module provides the core payment coordination functionality for x402 protocol consumers. It manages payment scheme registration and coordinates payment payload creation when accessing protected resources.

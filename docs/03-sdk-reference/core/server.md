@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Server Module
 
 The server module provides the core components for building x402-protected resource servers. It includes the `x402ResourceServer` class for payment verification and settlement, and the `HTTPFacilitatorClient` for communicating with facilitator services.

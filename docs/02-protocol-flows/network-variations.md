@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Network Variations
 
 The x402 protocol supports both EVM-compatible blockchains (Ethereum, Base, Polygon, etc.) and Solana through distinct implementations that handle network-specific signing and transaction mechanics. This document explains how payments differ between EVM and SVM networks, and how to work with multi-chain endpoints.
@@ -545,17 +545,21 @@ When a server offers multiple payment options, the client automatically selects 
 ### Require Specific Networks
 
 ```typescript
+import { x402Client } from "@x402/core/client";
+import { registerExactEvmScheme } from "@x402/evm/exact/client";
+import { registerExactSvmScheme } from "@x402/svm/exact/client";
+
 // Client: Support only Base
-const client = new x402Client()
-  .register("eip155:8453", new ExactEvmClient(signer));
+const client = new x402Client();
+registerExactEvmScheme(client, { signer, network: "eip155:8453" });
 
 // Client: Support all EVM networks
-const client = new x402Client()
-  .register("eip155:*", new ExactEvmClient(signer));
+const evmClient = new x402Client();
+registerExactEvmScheme(evmClient, { signer, network: "eip155:*" });
 
 // Client: Support all Solana networks
-const client = new x402Client()
-  .register("solana:*", new ExactSvmClient(signer));
+const svmClient = new x402Client();
+registerExactSvmScheme(svmClient, { signer, network: "solana:*" });
 ```
 
 ## Troubleshooting

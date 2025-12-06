@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Roadmap
 
 This page summarizes the x402 public roadmap. For the full roadmap with contribution guidelines, see [ROADMAP.md](https://github.com/coinbase/x402/blob/main/ROADMAP.md) in the repository root.

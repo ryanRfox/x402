@@ -1,4 +1,4 @@
-<!-- VERIFIED: 0aa62c64 -->
+<!-- VERIFIED: 3c3e2168 -->
 # Architecture Overview
 
 The x402 protocol consists of three core components that work together to enable machine-to-machine (M2M) payments for API access:
