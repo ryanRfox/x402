@@ -320,10 +320,10 @@ cat /tmp/permit2/src/SignatureTransfer.sol
 
 ## Getting Started
 
-1. Read `CLAUDE.arbitrary-token-support.md` for codebase navigation
+1. Read `CLAUDE.md` for codebase navigation
 2. Study existing `exact` scheme in `typescript/packages/mechanisms/evm/src/exact/`
 3. Clone Permit2 locally: `gh repo clone Uniswap/permit2 /tmp/permit2`
 4. Study `/tmp/permit2/src/SignatureTransfer.sol`
 5. Start Anvil with Base fork: `anvil --fork-url https://sepolia.base.org`
 6. Deploy test token and verify Permit2 flow manually
-7. Begin implementation following existing scheme patterns
+7. Begin implementation following existing scheme patterns into the /demo/permit2 folder.
