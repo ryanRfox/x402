@@ -21,6 +21,47 @@ const paymentRequirements = {
 };
 ```
 
+## Using Custom Tokens
+
+By default, the demo uses a pre-deployed USDEMO test token. To use any other ERC-20 token,
+set these environment variables:
+
+```bash
+# Required: The token contract address
+TOKEN_ADDRESS=0xYourTokenAddress
+
+# Optional: Token metadata for display (defaults shown)
+TOKEN_SYMBOL=TOKEN     # Used in output messages
+TOKEN_DECIMALS=18      # Token decimal places (most stablecoins use 6)
+```
+
+### Example: Using USDC on Base Sepolia
+
+```bash
+# .env file
+PRIVATE_KEY=0x...
+TOKEN_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
+TOKEN_SYMBOL=USDC
+TOKEN_DECIMALS=6
+```
+
+### Prerequisites for Custom Tokens
+
+Before using a custom token with Permit2:
+
+1. **Approve Permit2** - The token owner must approve the Permit2 contract to spend tokens:
+
+   ```bash
+   cast send $TOKEN_ADDRESS "approve(address,uint256)" \
+     0x000000000022D473030F116dDEE9F6B43aC78BA3 \
+     0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+     --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+   ```
+
+2. **Have a balance** - Your account must have tokens to transfer
+
+3. **Standard ERC-20** - The token must implement the standard ERC-20 interface
+
 ## Supported Networks
 
 | Network | Chain ID | Status | Token Address |

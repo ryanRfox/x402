@@ -3,6 +3,40 @@
  *
  * Supports local Anvil and public testnets. Configuration is loaded from
  * environment variables for testnets, with hardcoded defaults for Anvil.
+ *
+ * ## Token Configuration
+ *
+ * By default, the demo uses a pre-deployed USDEMO token. To use a different
+ * ERC-20 token with Permit2, set these environment variables:
+ *
+ * ```bash
+ * # Required: The token contract address
+ * TOKEN_ADDRESS=0xYourTokenAddress
+ *
+ * # Optional: Token metadata (defaults shown)
+ * TOKEN_SYMBOL=TOKEN     # Used for display purposes
+ * TOKEN_DECIMALS=18      # Token decimal places
+ * ```
+ *
+ * ### Prerequisites for Custom Tokens
+ *
+ * 1. The token must be an ERC-20 contract
+ * 2. You must have approved Permit2 to spend your tokens:
+ *    ```bash
+ *    cast send $TOKEN_ADDRESS "approve(address,uint256)" \
+ *      0x000000000022D473030F116dDEE9F6B43aC78BA3 \
+ *      0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+ *      --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+ *    ```
+ * 3. Your account must have a token balance
+ *
+ * ### Example: Using USDC on Base Sepolia
+ *
+ * ```bash
+ * TOKEN_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
+ * TOKEN_SYMBOL=USDC
+ * TOKEN_DECIMALS=6
+ * ```
  */
 
 import { defineChain, type Chain } from "viem";
@@ -10,6 +44,77 @@ import { config } from "dotenv";
 
 // Load environment variables
 config();
+
+// ============================================================================
+// Token Configuration from Environment Variables
+// ============================================================================
+
+/**
+ * Custom token address from environment.
+ * When set, overrides the default USDEMO token for all networks.
+ *
+ * @example
+ * ```bash
+ * TOKEN_ADDRESS=0x036CbD53842c5426634e7929541eC2318f3dCF7e
+ * ```
+ */
+const TOKEN_ADDRESS_ENV = process.env.TOKEN_ADDRESS as `0x${string}` | undefined;
+
+/**
+ * Custom token symbol for display purposes.
+ * Defaults to "TOKEN" if TOKEN_ADDRESS is set but TOKEN_SYMBOL is not.
+ *
+ * @example
+ * ```bash
+ * TOKEN_SYMBOL=USDC
+ * ```
+ */
+const TOKEN_SYMBOL_ENV = process.env.TOKEN_SYMBOL;
+
+/**
+ * Custom token decimals.
+ * Defaults to 18 if TOKEN_ADDRESS is set but TOKEN_DECIMALS is not.
+ * Most stablecoins use 6 decimals, while most other tokens use 18.
+ *
+ * @example
+ * ```bash
+ * TOKEN_DECIMALS=6
+ * ```
+ */
+const TOKEN_DECIMALS_ENV = process.env.TOKEN_DECIMALS
+  ? parseInt(process.env.TOKEN_DECIMALS, 10)
+  : undefined;
+
+/**
+ * Resolves token configuration with environment variable overrides.
+ *
+ * Priority:
+ * 1. TOKEN_ADDRESS env var (if set, uses TOKEN_SYMBOL and TOKEN_DECIMALS too)
+ * 2. Network-specific default token
+ *
+ * @param defaultAddress - Default token address for the network
+ * @param defaultSymbol - Default token symbol
+ * @param defaultDecimals - Default token decimals
+ * @returns Resolved token configuration
+ */
+function resolveTokenConfig(
+  defaultAddress: `0x${string}` | null,
+  defaultSymbol: string,
+  defaultDecimals: number
+): { address: `0x${string}` | null; symbol: string; decimals: number } {
+  if (TOKEN_ADDRESS_ENV) {
+    return {
+      address: TOKEN_ADDRESS_ENV,
+      symbol: TOKEN_SYMBOL_ENV || "TOKEN",
+      decimals: TOKEN_DECIMALS_ENV ?? 18,
+    };
+  }
+  return {
+    address: defaultAddress,
+    symbol: defaultSymbol,
+    decimals: defaultDecimals,
+  };
+}
 
 /** Universal Permit2 address - same CREATE2 address on all EVM chains. */
 export const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
@@ -45,6 +150,20 @@ export interface NetworkConfig {
 /** Available network names. */
 export type NetworkName = "anvil" | "radius-staging" | "radius-testnet" | "base-sepolia";
 
+// Resolve token configs for each network (allows env var override)
+const anvilToken = resolveTokenConfig(
+  "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+  "USDEMO",
+  6
+);
+const radiusStagingToken = resolveTokenConfig(
+  "0x20B3A535DA00f6A7285AF25280a618b38B588b66",
+  "USDEMO",
+  6
+);
+const radiusTestnetToken = resolveTokenConfig(null, "USDEMO", 6);
+const baseSepoliaToken = resolveTokenConfig(null, "USDEMO", 6);
+
 /**
  * Local Anvil configuration.
  * Uses hardcoded test accounts - safe for local testing only.
@@ -69,9 +188,9 @@ export const anvilConfig: NetworkConfig = {
     privateKey: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
   },
   recipient: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-  tokenAddress: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-  tokenSymbol: "USDEMO",
-  tokenDecimals: 6,
+  tokenAddress: anvilToken.address,
+  tokenSymbol: anvilToken.symbol,
+  tokenDecimals: anvilToken.decimals,
 };
 
 /**
@@ -101,9 +220,9 @@ export const radiusStagingConfig: NetworkConfig = {
   },
   // Use a different address as recipient (second Anvil address for testing)
   recipient: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  tokenAddress: "0x20B3A535DA00f6A7285AF25280a618b38B588b66",
-  tokenSymbol: "USDEMO",
-  tokenDecimals: 6,
+  tokenAddress: radiusStagingToken.address,
+  tokenSymbol: radiusStagingToken.symbol,
+  tokenDecimals: radiusStagingToken.decimals,
 };
 
 /**
@@ -129,9 +248,9 @@ export const radiusTestnetConfig: NetworkConfig = {
     privateKey: (process.env.PRIVATE_KEY || "0x") as `0x${string}`,
   },
   recipient: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  tokenAddress: null,
-  tokenSymbol: "USDEMO",
-  tokenDecimals: 6,
+  tokenAddress: radiusTestnetToken.address,
+  tokenSymbol: radiusTestnetToken.symbol,
+  tokenDecimals: radiusTestnetToken.decimals,
 };
 
 /**
@@ -157,9 +276,9 @@ export const baseSepoliaConfig: NetworkConfig = {
     privateKey: (process.env.PRIVATE_KEY || "0x") as `0x${string}`,
   },
   recipient: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  tokenAddress: null,
-  tokenSymbol: "USDEMO",
-  tokenDecimals: 6,
+  tokenAddress: baseSepoliaToken.address,
+  tokenSymbol: baseSepoliaToken.symbol,
+  tokenDecimals: baseSepoliaToken.decimals,
 };
 
 /** All available network configurations. */

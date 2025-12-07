@@ -326,6 +326,58 @@ Common causes:
 
 Each Permit2 signature can only be used once. Generate a new payment for retry.
 
+## Demo: Testing with Arbitrary Tokens
+
+A complete demo for testing Permit2 with any ERC-20 token is available in `demo/permit2/`.
+
+### Quick Start
+
+```bash
+cd demo/permit2
+npm install
+
+# For local testing (Anvil)
+npm test           # Direct Permit2 flow
+npm run test:sdk   # Full SDK integration
+
+# For testnets
+npm run test:network radius-staging
+npm run test:sdk:network radius-staging
+```
+
+### Using a Custom Token
+
+Set environment variables to use any ERC-20 token:
+
+```bash
+# .env file
+PRIVATE_KEY=0x...
+
+# Custom token configuration
+TOKEN_ADDRESS=0xYourTokenContractAddress
+TOKEN_SYMBOL=MYTOKEN    # For display (default: "TOKEN")
+TOKEN_DECIMALS=18       # Token decimals (default: 18, stablecoins usually use 6)
+```
+
+**Prerequisites:**
+1. Your account must have a token balance
+2. You must approve Permit2 to spend your tokens:
+
+```bash
+cast send $TOKEN_ADDRESS "approve(address,uint256)" \
+  0x000000000022D473030F116dDEE9F6B43aC78BA3 \
+  0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+  --rpc-url $RPC_URL --private-key $PRIVATE_KEY
+```
+
+### Common Token Examples
+
+| Token | Network | Address | Decimals |
+|-------|---------|---------|----------|
+| USDC | Base Sepolia | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | 6 |
+| WETH | Base Mainnet | `0x4200000000000000000000000000000000000006` | 18 |
+| USDEMO | Radius Staging | `0x20B3A535DA00f6A7285AF25280a618b38B588b66` | 6 |
+
 ## Next Steps
 
 - [EVM Exact Scheme](./evm.md) - EIP-3009 based payments (default)
