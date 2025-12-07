@@ -1,10 +1,10 @@
-# Claude Code Guidelines - Arbitrary Token Support (Permit2)
+# Claude Code Guidelines - x402 EVM Development
 
-This file provides context for implementing Permit2 support in x402. Read this alongside `PROMPT.arbitrary-token-support.md`.
+This file provides context for EVM development in x402, including Permit2 support for arbitrary ERC-20 tokens.
 
 ## Quick Context
 
-You are extending x402 to support ANY ERC-20 token using Uniswap's Permit2. This is the same approach Circle chose for CPN (Circle Payments Network) over EIP-3009.
+The x402 EVM implementation supports ANY ERC-20 token using Uniswap's Permit2. This is the same approach Circle chose for CPN (Circle Payments Network).
 
 **Key insight:** Use **SignatureTransfer** (not AllowanceTransfer) for payment settlement - it's more secure for one-time payment signatures.
 
@@ -24,15 +24,15 @@ See `docs/LOCAL-DEVELOPMENT.md` for full details. Quick reference:
 
 **CRITICAL**: The authoritative branch is `upstream/development-v2`. Always verify patterns against actual source code.
 
-### Key Files for This Effort
+### Key Files
 
 ```
-# STUDY THESE FIRST - Existing EVM implementation
-typescript/packages/mechanisms/evm/src/exact/client.ts
-typescript/packages/mechanisms/evm/src/exact/server.ts
-typescript/packages/mechanisms/evm/src/exact/facilitator.ts
-typescript/packages/mechanisms/evm/src/exact/types.ts
-typescript/packages/mechanisms/evm/README.md
+# EVM implementation
+typescript/packages/mechanisms/evm/src/exact/client/scheme.ts
+typescript/packages/mechanisms/evm/src/exact/server/scheme.ts
+typescript/packages/mechanisms/evm/src/exact/facilitator/scheme.ts
+typescript/packages/mechanisms/evm/src/types.ts
+typescript/packages/mechanisms/evm/src/permit2/constants.ts
 
 # Core abstractions
 typescript/packages/core/src/client/x402Client.ts
@@ -50,38 +50,64 @@ e2e/facilitators/typescript/index.ts
 
 **CRITICAL**: Use V2 registration patterns. Never use V1 class instantiation.
 
-### Correct V2 Pattern
+### Registration Pattern
 
 ```typescript
 // Client
 import { x402Client } from "@x402/core/client";
-import { registerPermit2EvmScheme } from "@x402/evm/permit2/client";
+import { registerExactEvmScheme } from "@x402/evm/exact/client";
 
 const client = new x402Client();
-registerPermit2EvmScheme(client, { signer });
+registerExactEvmScheme(client, { signer });
 
 // Server
 import { x402ResourceServer } from "@x402/core/server";
-import { registerPermit2EvmScheme } from "@x402/evm/permit2/server";
+import { registerExactEvmScheme } from "@x402/evm/exact/server";
 
 const server = new x402ResourceServer(facilitatorClient);
-registerPermit2EvmScheme(server);
+registerExactEvmScheme(server);
 
 // Facilitator
 import { x402Facilitator } from "@x402/core/facilitator";
-import { registerPermit2EvmScheme } from "@x402/evm/permit2/facilitator";
+import { registerExactEvmScheme } from "@x402/evm/exact/facilitator";
 
 const facilitator = new x402Facilitator();
-registerPermit2EvmScheme(facilitator, { signer, networks: "eip155:*" });
+registerExactEvmScheme(facilitator, { signer, networks: "eip155:*" });
 ```
 
 ### Wrong V1 Pattern (NEVER USE)
 
 ```typescript
 // WRONG - V1 pattern
-const client = new Permit2EvmClient(signer);
-client.register("eip155:*", new Permit2Scheme());
+const client = new EvmClient(signer);
+client.register("eip155:*", new SomeScheme());
 ```
+
+## Permit2 via assetTransferMethod
+
+Permit2 support is integrated into the `exact` scheme via the `extra.assetTransferMethod` field:
+
+```typescript
+const paymentRequirements = {
+  scheme: "exact",                    // Use exact scheme
+  network: "eip155:8453",
+  asset: "0xYourToken",               // ANY ERC-20 token
+  amount: "1000000",
+  payTo: "0xRecipient",
+  maxTimeoutSeconds: 300,
+  extra: {
+    assetTransferMethod: "permit2",   // Enables Permit2 (default: "eip3009")
+    facilitator: "0xFacilitator",
+  },
+};
+```
+
+### When to Use Each Method
+
+| assetTransferMethod | Token Support | Best For |
+|---------------------|---------------|----------|
+| `"eip3009"` (default) | EIP-3009 tokens (USDC) | Gas-optimized USDC payments |
+| `"permit2"` | ANY ERC-20 token | Universal token support |
 
 ## Permit2 Technical Details
 
@@ -133,134 +159,6 @@ const message = {
   nonce: uniqueNonce,
   deadline: expirationTimestamp
 };
-```
-
-### Viem Integration
-
-```typescript
-import { signTypedData } from "viem/accounts";
-
-const signature = await signTypedData({
-  domain,
-  types,
-  primaryType: "PermitTransferFrom",
-  message,
-  privateKey
-});
-```
-
-## Scheme Implementation Structure
-
-Create new permit2 scheme following exact scheme pattern:
-
-```
-typescript/packages/mechanisms/evm/src/permit2/
-├── client.ts      # createPayment() - signs Permit2 SignatureTransfer
-├── server.ts      # verifyPayment() - validates signature structure
-├── facilitator.ts # settlePayment() - calls Permit2.permitTransferFrom()
-├── types.ts       # Permit2Payload, Permit2Config
-└── index.ts       # exports + registerPermit2EvmScheme()
-```
-
-### Client Implementation Pattern
-
-```typescript
-// client.ts
-export class Permit2EvmScheme implements ClientScheme<Permit2Payload> {
-  constructor(private signer: PrivateKeyAccount) {}
-
-  async createPayment(
-    requirements: PaymentRequirements,
-    context: ClientContext
-  ): Promise<Permit2Payload> {
-    // 1. Generate unique nonce
-    const nonce = generateNonce();
-
-    // 2. Set deadline (e.g., 5 minutes from now)
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 300);
-
-    // 3. Build EIP-712 message for SignatureTransfer
-    const message = {
-      permitted: {
-        token: requirements.asset,
-        amount: requirements.amount
-      },
-      spender: requirements.facilitator,  // x402 facilitator
-      nonce,
-      deadline
-    };
-
-    // 4. Sign with viem
-    const signature = await this.signer.signTypedData({
-      domain: getPermit2Domain(requirements.network),
-      types: PERMIT2_TYPES,
-      primaryType: "PermitTransferFrom",
-      message
-    });
-
-    // 5. Return payload
-    return {
-      x402Version: 2,
-      scheme: "permit2",
-      network: requirements.network,
-      token: requirements.asset,
-      amount: requirements.amount,
-      nonce,
-      deadline,
-      owner: this.signer.address,
-      spender: requirements.facilitator,
-      signature
-    };
-  }
-}
-```
-
-### Facilitator Implementation Pattern
-
-```typescript
-// facilitator.ts
-export class Permit2EvmScheme implements FacilitatorScheme<Permit2Payload> {
-  constructor(
-    private signer: PrivateKeyAccount,
-    private networks: string[]
-  ) {}
-
-  async settlePayment(
-    payload: Permit2Payload,
-    requirements: PaymentRequirements
-  ): Promise<SettleResult> {
-    const client = getPublicClient(payload.network);
-    const walletClient = getWalletClient(payload.network, this.signer);
-
-    // Call Permit2.permitTransferFrom()
-    const tx = await walletClient.writeContract({
-      address: PERMIT2_ADDRESS,
-      abi: PERMIT2_ABI,
-      functionName: "permitTransferFrom",
-      args: [
-        {
-          permitted: {
-            token: payload.token,
-            amount: payload.amount
-          },
-          nonce: payload.nonce,
-          deadline: payload.deadline
-        },
-        {
-          to: requirements.payTo,
-          requestedAmount: payload.amount
-        },
-        payload.owner,
-        payload.signature
-      ]
-    });
-
-    return {
-      success: true,
-      transaction: tx
-    };
-  }
-}
 ```
 
 ## Network Identifiers
@@ -348,49 +246,22 @@ const walletClient = createWalletClient({
 // Deploy test token, approve Permit2, test flow...
 ```
 
-## Payload Type
-
-```typescript
-interface Permit2Payload {
-  x402Version: 2;
-  scheme: "permit2";
-  network: string;              // "eip155:84532"
-
-  // Permit2 SignatureTransfer fields
-  token: `0x${string}`;         // Token contract address
-  amount: bigint;               // Amount in token units
-  nonce: bigint;                // Unique nonce (non-sequential OK)
-  deadline: bigint;             // Unix timestamp expiration
-
-  // Transfer details
-  owner: `0x${string}`;         // Payer address (signer)
-  spender: `0x${string}`;       // Facilitator address
-
-  // EIP-712 signature
-  signature: `0x${string}`;     // Full signature bytes
-}
-```
-
 ## Testing Strategy
 
 ### Unit Tests
 
 ```
-typescript/packages/mechanisms/evm/src/permit2/__tests__/
-├── client.test.ts       # Signature generation
-├── server.test.ts       # Signature validation
-└── facilitator.test.ts  # Settlement execution
+typescript/packages/mechanisms/evm/src/exact/__tests__/
+├── client.test.ts       # Payload creation (EIP-3009 and Permit2)
+├── server.test.ts       # Requirement building
+└── facilitator.test.ts  # Verification and settlement
 ```
 
 ### E2E Tests
 
-```
-e2e/tests/permit2.test.ts
-```
-
 Test flow:
 1. Start Anvil fork
-2. Deploy test token (basic ERC-20, NO permit)
+2. Deploy test token (basic ERC-20)
 3. Approve Permit2 contract
 4. Create client, server, facilitator
 5. Execute full payment flow
@@ -406,18 +277,10 @@ Test flow:
 }
 ```
 
-Permit2 ABI available from:
+## Documentation
 
-- Source on [GitHub](https://github.com/Uniswap/permit2/blob/main/src/interfaces/ISignatureTransfer.sol) (which should be clones locally to /tmp)
-
-## Documentation Requirements
-
-When complete, create:
-
-1. `docs/03-sdk-reference/mechanisms/evm-permit2.md`
-2. Update `docs/03-sdk-reference/mechanisms/README.md`
-
-Follow patterns in existing docs. Use V2 patterns only.
+- `docs/03-sdk-reference/mechanisms/evm.md` - Main EVM docs (EIP-3009)
+- `docs/03-sdk-reference/mechanisms/evm-permit2.md` - Permit2 via assetTransferMethod
 
 ## Reference Architecture: Circle CPN
 
@@ -436,12 +299,9 @@ This maps directly to x402's model where the facilitator is the authorized spend
 ## Commit Style
 
 ```
-feat(evm): add permit2 scheme for universal ERC-20 support
+feat(evm): description of change
 
-- Add client-side Permit2 SignatureTransfer signing
-- Add server-side signature validation
-- Add facilitator settlement via permitTransferFrom
-- Add e2e tests with Anvil fork
+- Bullet point details
 ```
 
 Sign commits: `git commit -s -m "..."`

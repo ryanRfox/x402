@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Foundry
+cache/
+out/
+
+# Environment
+.env
+
+# Lockfiles (use pnpm)
+package-lock.json

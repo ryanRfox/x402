@@ -174,10 +174,12 @@ interface TransferWithAuthorization {
 - **Time-Bounded**: Validity windows prevent stale authorizations
 - **EIP-712 Security**: Typed structured data signing
 
+> [!TIP]
+> **Arbitrary Token Support via assetTransferMethod**
+> Use `extra.assetTransferMethod: "permit2"` to enable payments with **any ERC-20 token** using Uniswap's Permit2 contract. See [Permit2 documentation](./evm-permit2.md) for details.
+
 > [!NOTE]
-> **Roadmap: Enhanced Token Support**
-> Future enhancements planned for EVM payments:
-> - **Arbitrary Token Support** - Permit/Permit2 flows for non-EIP-3009 tokens (Q2 2026)
+> **Roadmap: Future Enhancements**
 > - **ERC-7710 On-Chain Delegations** - On-chain permission delegation (TBD)
 >
 > [View Roadmap](../../09-appendix/roadmap.md#later-future)
@@ -252,6 +254,7 @@ registerExactEvmScheme(facilitator, {
 
 ## Next Steps
 
+- [EVM Permit2 Scheme](./evm-permit2.md) - Arbitrary ERC-20 token support
 - [Client Module](../core/client.md) - Core client documentation
 - [Facilitator Module](../core/facilitator.md) - Facilitator documentation
 - [@x402/svm](./svm.md) - Solana payment mechanism

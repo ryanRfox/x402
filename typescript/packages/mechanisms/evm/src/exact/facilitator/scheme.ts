@@ -5,10 +5,18 @@ import {
   SettleResponse,
   VerifyResponse,
 } from "@x402/core/types";
-import { getAddress, Hex, isAddressEqual, parseErc6492Signature, parseSignature } from "viem";
+import { getAddress, Hex, isAddressEqual, parseErc6492Signature, parseSignature, recoverTypedDataAddress } from "viem";
 import { authorizationTypes, eip3009ABI } from "../../constants";
+import { PERMIT2_ADDRESS, permit2Types, permit2ABI, erc20ABI } from "../../permit2/constants";
 import { FacilitatorEvmSigner } from "../../signer";
-import { ExactEvmPayloadV2 } from "../../types";
+import {
+  AssetTransferMethod,
+  ExactEIP3009Payload,
+  ExactPermit2Payload,
+  ExactEvmPayloadV2,
+  isPermit2Payload,
+  isEIP3009Payload,
+} from "../../types";
 
 export interface ExactEvmSchemeConfig {
   /**
@@ -22,6 +30,13 @@ export interface ExactEvmSchemeConfig {
 
 /**
  * EVM facilitator implementation for the Exact payment scheme.
+ *
+ * Supports multiple asset transfer methods:
+ * - `eip3009` (default): EIP-3009 TransferWithAuthorization (requires token support)
+ * - `permit2`: Uniswap Permit2 SignatureTransfer (works with ANY ERC-20)
+ *
+ * The transfer method is determined by `extra.assetTransferMethod` in payment requirements,
+ * or auto-detected from the payload structure.
  */
 export class ExactEvmScheme implements SchemeNetworkFacilitator {
   readonly scheme = "exact";
@@ -45,13 +60,15 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
 
   /**
    * Get mechanism-specific extra data for the supported kinds endpoint.
-   * For EVM, no extra data is needed.
+   * Returns Permit2 contract address for Permit2 support.
    *
-   * @param _ - The network identifier (unused for EVM)
-   * @returns undefined (EVM has no extra data)
+   * @param _ - The network identifier (unused - Permit2 address is universal)
+   * @returns Extra data including Permit2 contract address
    */
   getExtra(_: string): Record<string, unknown> | undefined {
-    return undefined;
+    return {
+      permit2Address: PERMIT2_ADDRESS,
+    };
   }
 
   /**
@@ -68,6 +85,10 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
   /**
    * Verifies a payment payload.
    *
+   * Dispatches to the appropriate verification method based on payload structure:
+   * - Permit2 payloads (have `token`, `owner`, `deadline`)
+   * - EIP-3009 payloads (have `authorization`)
+   *
    * @param payload - The payment payload to verify
    * @param requirements - The payment requirements
    * @returns Promise resolving to verification response
@@ -80,13 +101,49 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
 
     // Verify scheme matches
     if (payload.accepted.scheme !== "exact" || requirements.scheme !== "exact") {
+      const payer = isPermit2Payload(exactEvmPayload)
+        ? exactEvmPayload.owner
+        : (exactEvmPayload as ExactEIP3009Payload).authorization.from;
       return {
         isValid: false,
         invalidReason: "unsupported_scheme",
-        payer: exactEvmPayload.authorization.from,
+        payer,
       };
     }
 
+    // Verify network matches
+    if (payload.accepted.network !== requirements.network) {
+      const payer = isPermit2Payload(exactEvmPayload)
+        ? exactEvmPayload.owner
+        : (exactEvmPayload as ExactEIP3009Payload).authorization.from;
+      return {
+        isValid: false,
+        invalidReason: "network_mismatch",
+        payer,
+      };
+    }
+
+    // Dispatch based on payload type
+    if (isPermit2Payload(exactEvmPayload)) {
+      return this.verifyPermit2(exactEvmPayload, requirements);
+    } else if (isEIP3009Payload(exactEvmPayload)) {
+      return this.verifyEIP3009(exactEvmPayload, requirements);
+    } else {
+      return {
+        isValid: false,
+        invalidReason: "unknown_payload_type",
+        payer: "unknown",
+      };
+    }
+  }
+
+  /**
+   * Verify EIP-3009 TransferWithAuthorization payload
+   */
+  private async verifyEIP3009(
+    exactEvmPayload: ExactEIP3009Payload,
+    requirements: PaymentRequirements,
+  ): Promise<VerifyResponse> {
     // Get chain configuration
     if (!requirements.extra?.name || !requirements.extra?.version) {
       return {
@@ -98,15 +155,6 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
 
     const { name, version } = requirements.extra;
     const erc20Address = getAddress(requirements.asset);
-
-    // Verify network matches
-    if (payload.accepted.network !== requirements.network) {
-      return {
-        isValid: false,
-        invalidReason: "network_mismatch",
-        payer: exactEvmPayload.authorization.from,
-      };
-    }
 
     // Build typed data for signature verification
     const permitTypedData = {
@@ -258,7 +306,154 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
   }
 
   /**
+   * Verify Permit2 SignatureTransfer payload
+   */
+  private async verifyPermit2(
+    permit2Payload: ExactPermit2Payload,
+    requirements: PaymentRequirements,
+  ): Promise<VerifyResponse> {
+    const chainId = parseInt(requirements.network.split(":")[1]);
+
+    // Verify token matches
+    if (getAddress(permit2Payload.token) !== getAddress(requirements.asset)) {
+      return {
+        isValid: false,
+        invalidReason: "token_mismatch",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Get the facilitator address (who will call permitTransferFrom)
+    const facilitatorAddresses = this.signer.getAddresses();
+    if (facilitatorAddresses.length === 0) {
+      return {
+        isValid: false,
+        invalidReason: "no_facilitator_address",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Build the EIP-712 domain and message for verification
+    const domain = {
+      name: "Permit2",
+      chainId,
+      verifyingContract: PERMIT2_ADDRESS,
+    };
+
+    // The spender in the signed message should be one of the facilitator addresses
+    // We need to try each facilitator address to find which one was used
+    let signatureValid = false;
+
+    for (const facilitatorAddress of facilitatorAddresses) {
+      const message = {
+        permitted: {
+          token: getAddress(permit2Payload.token),
+          amount: BigInt(permit2Payload.amount),
+        },
+        spender: facilitatorAddress,
+        nonce: BigInt(permit2Payload.nonce),
+        deadline: BigInt(permit2Payload.deadline),
+      };
+
+      try {
+        const recoveredAddress = await recoverTypedDataAddress({
+          domain,
+          types: permit2Types,
+          primaryType: "PermitTransferFrom",
+          message,
+          signature: permit2Payload.signature,
+        });
+
+        if (getAddress(recoveredAddress) === getAddress(permit2Payload.owner)) {
+          signatureValid = true;
+          break;
+        }
+      } catch {
+        // Try next facilitator address
+        continue;
+      }
+    }
+
+    if (!signatureValid) {
+      return {
+        isValid: false,
+        invalidReason: "invalid_permit2_signature",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Verify deadline is in the future (with buffer for block time)
+    const now = Math.floor(Date.now() / 1000);
+    if (BigInt(permit2Payload.deadline) < BigInt(now + 6)) {
+      return {
+        isValid: false,
+        invalidReason: "permit2_deadline_expired",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Verify amount is sufficient
+    if (BigInt(permit2Payload.amount) < BigInt(requirements.amount)) {
+      return {
+        isValid: false,
+        invalidReason: "insufficient_amount",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Check payer's token balance
+    try {
+      const balance = (await this.signer.readContract({
+        address: getAddress(permit2Payload.token),
+        abi: erc20ABI,
+        functionName: "balanceOf",
+        args: [permit2Payload.owner],
+      })) as bigint;
+
+      if (balance < BigInt(requirements.amount)) {
+        return {
+          isValid: false,
+          invalidReason: "insufficient_funds",
+          payer: permit2Payload.owner,
+        };
+      }
+    } catch {
+      // If balance check fails, continue - will fail at settlement if funds are insufficient
+    }
+
+    // Check payer's Permit2 allowance
+    try {
+      const allowance = (await this.signer.readContract({
+        address: getAddress(permit2Payload.token),
+        abi: erc20ABI,
+        functionName: "allowance",
+        args: [permit2Payload.owner, PERMIT2_ADDRESS],
+      })) as bigint;
+
+      if (allowance < BigInt(requirements.amount)) {
+        return {
+          isValid: false,
+          invalidReason: "insufficient_permit2_allowance",
+          payer: permit2Payload.owner,
+        };
+      }
+    } catch {
+      // If allowance check fails, continue - will fail at settlement
+    }
+
+    return {
+      isValid: true,
+      invalidReason: undefined,
+      payer: permit2Payload.owner,
+    };
+  }
+
+  /**
    * Settles a payment by executing the transfer.
+   *
+   * Dispatches to the appropriate settlement method based on payload structure:
+   * - Permit2 payloads use Permit2.permitTransferFrom()
+   * - EIP-3009 payloads use token.transferWithAuthorization()
    *
    * @param payload - The payment payload to settle
    * @param requirements - The payment requirements
@@ -273,15 +468,42 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
     // Re-verify before settling
     const valid = await this.verify(payload, requirements);
     if (!valid.isValid) {
+      const payer = isPermit2Payload(exactEvmPayload)
+        ? exactEvmPayload.owner
+        : (exactEvmPayload as ExactEIP3009Payload).authorization.from;
       return {
         success: false,
         network: payload.accepted.network,
         transaction: "",
         errorReason: valid.invalidReason ?? "invalid_scheme",
-        payer: exactEvmPayload.authorization.from,
+        payer,
       };
     }
 
+    // Dispatch based on payload type
+    if (isPermit2Payload(exactEvmPayload)) {
+      return this.settlePermit2(exactEvmPayload, payload, requirements);
+    } else if (isEIP3009Payload(exactEvmPayload)) {
+      return this.settleEIP3009(exactEvmPayload, payload, requirements);
+    } else {
+      return {
+        success: false,
+        network: payload.accepted.network,
+        transaction: "",
+        errorReason: "unknown_payload_type",
+        payer: "unknown",
+      };
+    }
+  }
+
+  /**
+   * Settle EIP-3009 TransferWithAuthorization payment
+   */
+  private async settleEIP3009(
+    exactEvmPayload: ExactEIP3009Payload,
+    payload: PaymentPayload,
+    requirements: PaymentRequirements,
+  ): Promise<SettleResponse> {
     try {
       // Parse ERC-6492 signature if applicable
       const parseResult = parseErc6492Signature(exactEvmPayload.signature!);
@@ -388,13 +610,77 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
         payer: exactEvmPayload.authorization.from,
       };
     } catch (error) {
-      console.error("Failed to settle transaction:", error);
+      console.error("Failed to settle EIP-3009 transaction:", error);
       return {
         success: false,
         errorReason: "transaction_failed",
         transaction: "",
         network: payload.accepted.network,
         payer: exactEvmPayload.authorization.from,
+      };
+    }
+  }
+
+  /**
+   * Settle Permit2 SignatureTransfer payment
+   */
+  private async settlePermit2(
+    permit2Payload: ExactPermit2Payload,
+    payload: PaymentPayload,
+    requirements: PaymentRequirements,
+  ): Promise<SettleResponse> {
+    try {
+      // Build the permit struct for the contract call
+      const permit = {
+        permitted: {
+          token: getAddress(permit2Payload.token),
+          amount: BigInt(permit2Payload.amount),
+        },
+        nonce: BigInt(permit2Payload.nonce),
+        deadline: BigInt(permit2Payload.deadline),
+      };
+
+      // Transfer details - where the tokens go
+      const transferDetails = {
+        to: getAddress(requirements.payTo),
+        requestedAmount: BigInt(requirements.amount),
+      };
+
+      // Call Permit2.permitTransferFrom()
+      const tx = await this.signer.writeContract({
+        address: PERMIT2_ADDRESS,
+        abi: permit2ABI,
+        functionName: "permitTransferFrom",
+        args: [permit, transferDetails, permit2Payload.owner, permit2Payload.signature],
+      });
+
+      // Wait for transaction confirmation
+      const receipt = await this.signer.waitForTransactionReceipt({ hash: tx });
+
+      if (receipt.status !== "success") {
+        return {
+          success: false,
+          errorReason: "transaction_failed",
+          transaction: tx,
+          network: payload.accepted.network,
+          payer: permit2Payload.owner,
+        };
+      }
+
+      return {
+        success: true,
+        transaction: tx,
+        network: payload.accepted.network,
+        payer: permit2Payload.owner,
+      };
+    } catch (error) {
+      console.error("Failed to settle Permit2 transaction:", error);
+      return {
+        success: false,
+        errorReason: "transaction_failed",
+        transaction: "",
+        network: payload.accepted.network,
+        payer: permit2Payload.owner,
       };
     }
   }

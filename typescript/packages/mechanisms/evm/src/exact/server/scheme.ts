@@ -6,9 +6,18 @@ import {
   SchemeNetworkServer,
   MoneyParser,
 } from "@x402/core/types";
+import { AssetTransferMethod } from "../../types";
 
 /**
  * EVM server implementation for the Exact payment scheme.
+ *
+ * Supports multiple asset transfer methods:
+ * - `eip3009` (default): EIP-3009 TransferWithAuthorization (requires token support)
+ * - `permit2`: Uniswap Permit2 SignatureTransfer (works with ANY ERC-20)
+ *
+ * The transfer method is specified via `extra.assetTransferMethod` in the AssetAmount.
+ * When using Permit2, the EIP-712 domain parameters (name, version) are not required
+ * since Permit2 has its own universal domain.
  */
 export class ExactEvmScheme implements SchemeNetworkServer {
   readonly scheme = "exact";
@@ -25,13 +34,29 @@ export class ExactEvmScheme implements SchemeNetworkServer {
    * @returns The server instance for chaining
    *
    * @example
+   * // Custom token with EIP-3009 support
    * evmServer.registerMoneyParser(async (amount, network) => {
-   *   // Custom conversion logic
-   *   if (amount > 100) {
-   *     // Use different token for large amounts
-   *     return { amount: (amount * 1e18).toString(), asset: "0xCustomToken" };
+   *   if (network === "eip155:8453") {
+   *     return {
+   *       amount: (amount * 1e18).toString(),
+   *       asset: "0xCustomToken",
+   *       extra: { name: "Custom Token", version: "1" },
+   *     };
    *   }
-   *   return null; // Use next parser
+   *   return null;
+   * });
+   *
+   * @example
+   * // Arbitrary ERC-20 token via Permit2
+   * evmServer.registerMoneyParser(async (amount, network) => {
+   *   if (network === "eip155:100") {
+   *     return {
+   *       amount: BigInt(Math.round(amount * 1e18)).toString(),
+   *       asset: "0xe91d153e0b41518a2ce8dd3d7944fa863463a97d", // WXDAI
+   *       extra: { assetTransferMethod: "permit2" },
+   *     };
+   *   }
+   *   return null;
    * });
    */
   registerMoneyParser(parser: MoneyParser): ExactEvmScheme {

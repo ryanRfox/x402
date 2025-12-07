@@ -1,0 +1,21 @@
+{
+  "name": "permit2-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Demonstrates Permit2 SignatureTransfer integration with x402 payment protocol",
+  "scripts": {
+    "test": "tsx test-permit2-flow.ts",
+    "test:sdk": "tsx test-sdk-permit2-flow.ts"
+  },
+  "dependencies": {
+    "@x402/core": "file:../../typescript/packages/core",
+    "@x402/evm": "file:../../typescript/packages/mechanisms/evm",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

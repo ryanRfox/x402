@@ -10,5 +10,6 @@
 
 ## Available Mechanisms
 
-- [EVM](./evm.md) - Ethereum, Base, and EVM-compatible chains
+- [EVM](./evm.md) - Ethereum, Base, and EVM-compatible chains (EIP-3009 exact scheme)
+- [EVM Permit2](./evm-permit2.md) - Arbitrary ERC-20 token support via Uniswap Permit2
 - [SVM](./svm.md) - Solana
