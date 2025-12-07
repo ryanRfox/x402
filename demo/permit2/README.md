@@ -35,6 +35,7 @@ const paymentRequirements = {
 1. **Direct Permit2 Flow** (`test-permit2-flow.ts`) - Raw viem calls showing how Permit2 works (Anvil only)
 2. **SDK Integration** (`test-sdk-permit2-flow.ts`) - Full x402 client/facilitator flow (Anvil only)
 3. **Multi-Network Test** (`test-permit2-network.ts`) - Permit2 on any supported network
+4. **SDK Multi-Network Test** (`test-sdk-network.ts`) - Full x402 SDK flow on any network
 
 ## Quick Start: Local Anvil
 
@@ -98,7 +99,12 @@ Get test ETH from a Radius faucet for address derived from your private key.
 
 ```bash
 npm install
+
+# Raw Permit2 test
 npm run test:network radius-staging
+
+# Full x402 SDK test
+npm run test:sdk:network radius-staging
 ```
 
 A test token is already deployed and approved at `0x20B3A535DA00f6A7285AF25280a618b38B588b66`.
@@ -123,6 +129,7 @@ npm run test:network <network-name>
 | `test-permit2-flow.ts` | Direct Permit2 demo - Anvil only |
 | `test-sdk-permit2-flow.ts` | x402 SDK integration - Anvil only |
 | `test-permit2-network.ts` | Multi-network Permit2 test |
+| `test-sdk-network.ts` | x402 SDK test on any network |
 | `deploy-token.ts` | Deploy TestToken to any network |
 | `contracts/TestToken.sol` | Basic ERC-20 test token |
 

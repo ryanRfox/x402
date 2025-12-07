@@ -8,6 +8,7 @@
     "test": "tsx test-permit2-flow.ts",
     "test:sdk": "tsx test-sdk-permit2-flow.ts",
     "test:network": "tsx test-permit2-network.ts",
+    "test:sdk:network": "tsx test-sdk-network.ts",
     "deploy": "tsx deploy-token.ts"
   },
   "dependencies": {
