@@ -29,8 +29,7 @@ const TEST_TOKEN_BYTECODE = "0x608060405234801561001057600080fd5b506040518060400
 
 /**
  * Deploys TestToken to the specified network.
- *
- * @param networkName - Network to deploy to
+ * Network is specified via command line argument (default: anvil).
  */
 async function main(): Promise<void> {
   const networkName = (process.argv[2] || "anvil") as NetworkName;

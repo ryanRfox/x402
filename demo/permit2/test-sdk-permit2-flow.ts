@@ -129,31 +129,30 @@ async function main(): Promise<void> {
   // Create facilitator signer
   const facilitatorSigner = toFacilitatorEvmSigner({
     address: facilitatorAccount.address,
-    getAddresses: () => [facilitatorAccount.address],
     readContract: async (args) => {
       return publicClient.readContract({
         address: args.address,
-        abi: args.abi as readonly unknown[],
+        abi: args.abi,
         functionName: args.functionName,
-        args: args.args as readonly unknown[],
+        args: args.args,
       });
     },
     verifyTypedData: async (args) => {
       return publicClient.verifyTypedData({
         address: args.address,
-        domain: args.domain as Record<string, unknown>,
-        types: args.types as Record<string, unknown>,
+        domain: args.domain,
+        types: args.types,
         primaryType: args.primaryType,
         message: args.message,
         signature: args.signature,
-      });
+      } as Parameters<typeof publicClient.verifyTypedData>[0]);
     },
     writeContract: async (args) => {
       return facilitatorWalletClient.writeContract({
         address: args.address,
-        abi: args.abi as readonly unknown[],
+        abi: args.abi,
         functionName: args.functionName,
-        args: args.args as readonly unknown[],
+        args: args.args,
       });
     },
     sendTransaction: async (args) => {
