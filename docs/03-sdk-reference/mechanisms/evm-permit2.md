@@ -159,6 +159,8 @@ The Permit2 contract is deployed at the same address on all major EVM chains:
 | Optimism | `eip155:10` | Yes |
 | Arbitrum | `eip155:42161` | Yes |
 | Polygon | `eip155:137` | Yes |
+| Radius Staging | `eip155:1223954` | Yes |
+| Radius Testnet | `eip155:1223953` | Yes |
 
 ## How Permit2 Works
 
