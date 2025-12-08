@@ -1,56 +1,177 @@
-# Claude Code Guidelines - x402 EVM Development
+# Claude Code Guidelines - E2E Testing for EVM Permit2
 
-This file provides context for EVM development in x402, including Permit2 support for arbitrary ERC-20 tokens.
+This file provides context for extending the e2e test framework to support Permit2.
+
+## Current Task
+
+**Add Permit2 support to the e2e test framework.** See `.claude/PROMPT-evm-exact-permit2.md` for full requirements.
 
 ## Quick Context
 
-The x402 EVM implementation supports ANY ERC-20 token using Uniswap's Permit2. This is the same approach Circle chose for CPN (Circle Payments Network).
+The x402 SDK already supports Permit2 via `extra.assetTransferMethod: "permit2"`. The demo at `demo/permit2/` validates it works. Now we need to integrate into the main e2e tests at `/e2e`.
 
-**Key insight:** Use **SignatureTransfer** (not AllowanceTransfer) for payment settlement - it's more secure for one-time payment signatures.
+## E2E Framework Architecture
 
-## Local Development (V2 SDK)
+### Scenario Generation
+
+```
+Scenarios = Client × Server × Endpoint × Facilitator × ProtocolFamily
+```
+
+Components are discovered from directories with `test.config.json` files.
+
+### Key Files
+
+```
+e2e/
+├── test.ts                    # Main orchestration (763 lines)
+├── src/
+│   ├── types.ts               # TestEndpoint, TestConfig interfaces
+│   └── discovery.ts           # Cartesian product scenario builder
+├── clients/
+│   └── fetch/
+│       ├── index.ts           # Fetch client with x402
+│       └── test.config.json
+├── servers/
+│   └── express/
+│       ├── index.ts           # Express server with paymentMiddleware
+│       └── test.config.json   # Endpoint definitions
+└── facilitators/
+    └── typescript/
+        ├── index.ts           # TypeScript facilitator
+        └── test.config.json
+```
+
+### Environment Variables
+
+```bash
+# Current e2e env vars (all 6 required)
+CLIENT_EVM_PRIVATE_KEY=0x...
+CLIENT_SVM_PRIVATE_KEY=...
+SERVER_EVM_ADDRESS=0x...          # Receives payments
+SERVER_SVM_ADDRESS=...
+FACILITATOR_EVM_PRIVATE_KEY=0x... # Executes settlements
+FACILITATOR_SVM_PRIVATE_KEY=...
+```
+
+**Note**: SERVER uses ADDRESS not PRIVATE_KEY in current design.
+
+### TestEndpoint Schema
+
+```typescript
+interface TestEndpoint {
+  path: string;
+  method: string;
+  description: string;
+  requiresPayment?: boolean;
+  protocolFamily?: "evm" | "svm";  // Used for filtering
+  networks?: string[];
+  health?: boolean;
+  close?: boolean;
+}
+```
+
+**Important**: No `scheme`, `assetTransferMethod`, or `asset` fields in TestEndpoint.
+
+## Server Endpoint Pattern
+
+The server uses `paymentMiddleware` with route configurations:
+
+```typescript
+// e2e/servers/express/index.ts
+app.use(paymentMiddleware({
+  "GET /protected": {
+    accepts: {
+      payTo: EVM_PAYEE_ADDRESS,
+      scheme: "exact",
+      network: EVM_NETWORK,
+      price: "$0.001",  // Shorthand → USDC via EIP-3009
+    },
+    description: "Protected endpoint",
+  },
+  // Add Permit2 endpoint here:
+  "GET /protected-permit2": {
+    accepts: {
+      payTo: EVM_PAYEE_ADDRESS,
+      scheme: "exact",
+      network: EVM_NETWORK,
+      price: {
+        amount: "1000000000000000",  // 0.001 WETH
+        asset: "0x4200000000000000000000000000000000000006",
+        extra: { assetTransferMethod: "permit2" },
+      },
+    },
+    description: "Permit2 endpoint (WETH)",
+  },
+}, server));
+```
+
+## Key SDK Code Locations
+
+### Server-Side parsePrice
+
+**File**: `typescript/packages/mechanisms/evm/src/exact/server/scheme.ts`
+
+```typescript
+// Lines 77-103: parsePrice implementation
+async parsePrice(price: Price, network: Network): Promise<AssetAmount> {
+  // If already an AssetAmount, return it directly
+  if (typeof price === "object" && price !== null && "amount" in price) {
+    return { amount: price.amount, asset: price.asset, extra: price.extra || {} };
+  }
+  // Parse Money to decimal, try custom parsers, fallback to USDC
+  // ...
+}
+```
+
+**Key insight**: Explicit `AssetAmount` bypasses all money parsing - use this for Permit2.
+
+### Client-Side createPaymentPayload
+
+**File**: `typescript/packages/mechanisms/evm/src/exact/client/scheme.ts`
+
+Detects `extra.assetTransferMethod` and creates appropriate EIP-712 signature.
+
+### Facilitator-Side settle
+
+**File**: `typescript/packages/mechanisms/evm/src/exact/facilitator/scheme.ts`
+
+Dispatches to either EIP-3009 or Permit2 based on `extra.assetTransferMethod`.
+
+## Local Development
 
 **CRITICAL**: Never install x402 packages from npm - they are V1.
-
-See `docs/LOCAL-DEVELOPMENT.md` for full details. Quick reference:
 
 | Location | Protocol | Example |
 |----------|----------|---------|
 | Inside monorepo | `workspace:*` | `"@x402/core": "workspace:*"` |
 | Outside monorepo | `file:` | `"@x402/core": "file:../typescript/packages/core"` |
-| npm | **NEVER** | Do not use npm for x402 packages |
 
-## Source of Truth
+## Test Network Setup
 
-**CRITICAL**: The authoritative branch is `upstream/development-v2`. Always verify patterns against actual source code.
+**Recommended**: Base Sepolia (`eip155:84532`)
 
-### Key Files
+WETH address: `0x4200000000000000000000000000000000000006` (18 decimals)
+Permit2 address: `0x000000000022D473030F116dDEE9F6B43aC78BA3`
 
-```
-# EVM implementation
-typescript/packages/mechanisms/evm/src/exact/client/scheme.ts
-typescript/packages/mechanisms/evm/src/exact/server/scheme.ts
-typescript/packages/mechanisms/evm/src/exact/facilitator/scheme.ts
-typescript/packages/mechanisms/evm/src/types.ts
-typescript/packages/mechanisms/evm/src/permit2/constants.ts
+### Prerequisites for CLIENT Account
 
-# Core abstractions
-typescript/packages/core/src/client/x402Client.ts
-typescript/packages/core/src/server/x402ResourceServer.ts
-typescript/packages/core/src/facilitator/x402Facilitator.ts
-typescript/packages/core/src/types/
+```bash
+# 1. Wrap ETH to WETH
+cast send 0x4200000000000000000000000000000000000006 --value 0.01ether \
+  --rpc-url https://sepolia.base.org --private-key $CLIENT_EVM_PRIVATE_KEY
 
-# E2E patterns (how schemes are wired up)
-e2e/clients/fetch/index.ts
-e2e/servers/express/index.ts
-e2e/facilitators/typescript/index.ts
+# 2. Approve Permit2
+cast send 0x4200000000000000000000000000000000000006 \
+  "approve(address,uint256)" \
+  0x000000000022D473030F116dDEE9F6B43aC78BA3 \
+  0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+  --rpc-url https://sepolia.base.org --private-key $CLIENT_EVM_PRIVATE_KEY
 ```
 
 ## V2 API Patterns
 
-**CRITICAL**: Use V2 registration patterns. Never use V1 class instantiation.
-
-### Registration Pattern
+**CRITICAL**: Use V2 registration patterns.
 
 ```typescript
 // Client
@@ -75,295 +196,53 @@ const facilitator = new x402Facilitator();
 registerExactEvmScheme(facilitator, { signer, networks: "eip155:*" });
 ```
 
-### Wrong V1 Pattern (NEVER USE)
-
-```typescript
-// WRONG - V1 pattern
-const client = new EvmClient(signer);
-client.register("eip155:*", new SomeScheme());
-```
-
-## Permit2 via assetTransferMethod
-
-Permit2 support is integrated into the `exact` scheme via the `extra.assetTransferMethod` field:
-
-```typescript
-const paymentRequirements = {
-  scheme: "exact",                    // Use exact scheme
-  network: "eip155:8453",
-  asset: "0xYourToken",               // ANY ERC-20 token
-  amount: "1000000",
-  payTo: "0xRecipient",
-  maxTimeoutSeconds: 300,
-  extra: {
-    assetTransferMethod: "permit2",   // Enables Permit2 (default: "eip3009")
-    facilitator: "0xFacilitator",
-  },
-};
-```
-
-### When to Use Each Method
-
-| assetTransferMethod | Token Support | Best For |
-|---------------------|---------------|----------|
-| `"eip3009"` (default) | EIP-3009 tokens (USDC) | Gas-optimized USDC payments |
-| `"permit2"` | ANY ERC-20 token | Universal token support |
-
-## Permit2 Technical Details
-
-### Contract Address (Universal)
-
-```
-0x000000000022D473030F116dDEE9F6B43aC78BA3
-```
-
-Same address on ALL EVM chains (Ethereum, Base, Optimism, Arbitrum, Polygon, etc.)
-
-### SignatureTransfer vs AllowanceTransfer
-
-Permit2 has two components. **Use SignatureTransfer for x402:**
-
-| Component | Use Case | Security |
-|-----------|----------|----------|
-| **SignatureTransfer** | One-time transfers | High - no hanging approvals |
-| AllowanceTransfer | Time-based approvals | Lower - Paraswap hack vector |
-
-### EIP-712 Signature Structure
-
-```typescript
-const domain = {
-  name: "Permit2",
-  chainId: chainId,
-  verifyingContract: "0x000000000022D473030F116dDEE9F6B43aC78BA3"
-};
-
-const types = {
-  TokenPermissions: [
-    { name: "token", type: "address" },
-    { name: "amount", type: "uint256" }
-  ],
-  PermitTransferFrom: [
-    { name: "permitted", type: "TokenPermissions" },
-    { name: "spender", type: "address" },
-    { name: "nonce", type: "uint256" },
-    { name: "deadline", type: "uint256" }
-  ]
-};
-
-const message = {
-  permitted: {
-    token: tokenAddress,
-    amount: amount
-  },
-  spender: facilitatorAddress,
-  nonce: uniqueNonce,
-  deadline: expirationTimestamp
-};
-```
-
-## Network Identifiers
-
-Use CAIP-2 format for all network references:
-
-| Network | Identifier |
-|---------|------------|
-| Anvil (local) | `eip155:31337` |
-| Base Sepolia | `eip155:84532` |
-| Base Mainnet | `eip155:8453` |
-| Ethereum Mainnet | `eip155:1` |
-
 ## Foundry Toolchain
-
-This project uses **Foundry** for Ethereum development. Foundry provides:
 
 | Tool | Purpose |
 |------|---------|
-| `forge` | Compile, test, and deploy Solidity contracts |
-| `anvil` | Local Ethereum node (like Ganache/Hardhat node) |
-| `cast` | CLI for contract interaction and chain queries |
-| `chisel` | Solidity REPL for quick experiments |
+| `forge` | Compile, test, deploy contracts |
+| `anvil` | Local Ethereum node |
+| `cast` | CLI for contract interaction |
 
-### Install Foundry
+### Install
 
 ```bash
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
 ```
 
-### Essential Foundry Commands
+### Common Commands
 
 ```bash
-# Compilation
-forge build                          # Compile all contracts
-forge build --watch                  # Watch mode
-
-# Testing
-forge test                           # Run all tests
-forge test -vvv                      # Verbose output
-forge test --match-test testName     # Run specific test
-
-# Deployment
-forge create ContractName --rpc-url $RPC --private-key $KEY
-forge script script/Deploy.s.sol --rpc-url $RPC --broadcast
-
-# Contract Interaction
-cast call $ADDR "balanceOf(address)" $USER --rpc-url $RPC
-cast send $ADDR "transfer(address,uint256)" $TO $AMT --rpc-url $RPC --private-key $KEY
-
-# Chain Queries
 cast balance $ADDR --rpc-url $RPC
-cast receipt $TX_HASH --rpc-url $RPC
-cast chain-id --rpc-url $RPC
+cast call $ADDR "balanceOf(address)" $USER --rpc-url $RPC
+cast send $ADDR "approve(address,uint256)" $SPENDER $AMT --rpc-url $RPC --private-key $KEY
 ```
-
-## Anvil Integration
-
-### Start with Fork (Recommended)
-
-```bash
-# Fork Base Sepolia - Permit2 already deployed
-anvil --fork-url https://sepolia.base.org --chain-id 84532
-```
-
-### In TypeScript Tests
-
-```typescript
-import { createTestClient, createWalletClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
-
-// Anvil's first account
-const account = privateKeyToAccount(
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-);
-
-const walletClient = createWalletClient({
-  account,
-  chain: baseSepolia,
-  transport: http("http://127.0.0.1:8545")
-});
-
-// Deploy test token, approve Permit2, test flow...
-```
-
-## Testing Strategy
-
-### Unit Tests
-
-```
-typescript/packages/mechanisms/evm/src/exact/__tests__/
-├── client.test.ts       # Payload creation (EIP-3009 and Permit2)
-├── server.test.ts       # Requirement building
-└── facilitator.test.ts  # Verification and settlement
-```
-
-### E2E Tests
-
-Test flow:
-1. Start Anvil fork
-2. Deploy test token (basic ERC-20)
-3. Approve Permit2 contract
-4. Create client, server, facilitator
-5. Execute full payment flow
-6. Verify token balances changed
-
-## Dependencies
-
-```json
-{
-  "dependencies": {
-    "viem": "^2.x"
-  }
-}
-```
-
-## Documentation
-
-- `docs/03-sdk-reference/mechanisms/evm.md` - Main EVM docs (EIP-3009)
-- `docs/03-sdk-reference/mechanisms/evm-permit2.md` - Permit2 via assetTransferMethod
-
-## Reference Architecture: Circle CPN
-
-Circle's CPN validates this approach at production scale:
-
-1. **Master Approval**: User approves Permit2 once per token
-2. **Per-Payment Signature**: User signs exact amount + facilitator + deadline
-3. **Settlement**: PaymentSettlement contract (≈ facilitator) calls Permit2
-
-> "The Relayer cannot pull funds itself - only the authorized spender (PaymentSettlement contract) can execute."
-
-This maps directly to x402's model where the facilitator is the authorized spender.
-
-**Source:** [Circle: How CPN Uses Permit2](https://www.circle.com/blog/how-cpn-uses-permit2-to-simplify-and-secure-onchain-payments)
 
 ## Commit Style
 
 ```
-feat(evm): description of change
+feat(e2e): add permit2 endpoint to test framework
 
-- Bullet point details
+- Add /protected-permit2 endpoint with WETH
+- Update test.config.json with new endpoint
+- Document prerequisites for CLIENT account
 ```
 
 Sign commits: `git commit -s -m "..."`
 
-## Questions? Check These First
+## Constraints
 
-1. **How does exact scheme work?** → Read `typescript/packages/mechanisms/evm/src/exact/`
-2. **How are schemes registered?** → Read `typescript/packages/core/src/client/x402Client.ts`
-3. **What's the payload format?** → Read `typescript/packages/core/src/types/protocol.ts`
-4. **Permit2 details?** → [Uniswap Permit2 Docs](https://docs.uniswap.org/contracts/permit2/overview)
+1. **Follow existing patterns exactly** - Do not redesign e2e framework
+2. **EVM only** - Skip SVM for this effort
+3. **Use explicit AssetAmount** - Not `"$0.001"` shorthand for Permit2
 
-## Foundry MCP Server
+## References
 
-A Foundry MCP server is available for enhanced Anvil/Forge/Cast integration.
-
-**Package:** `@pranesh.asp/foundry-mcp-server`
-
-### Available MCP Tools
-
-| Category | Tools |
-|----------|-------|
-| **Anvil** | `anvil_start`, `anvil_stop`, `anvil_status` |
-| **Cast** | `cast_call`, `cast_send`, `cast_balance`, `cast_receipt`, `cast_storage`, `cast_logs` |
-| **Forge** | `forge_script`, `install_dependency` |
-| **Files** | `create_solidity_file`, `read_file`, `list_files` |
-| **Utils** | `convert_eth_units`, `compute_address`, `contract_size`, `estimate_gas` |
-
-### Configuration
-
-If the MCP server is configured, prefer using MCP tools over raw bash commands:
-
-```
-# Instead of:
-anvil --fork-url https://sepolia.base.org
-
-# Use MCP tool:
-anvil_start with fork_url parameter
-```
-
-See `.cursor/mcp.json` for configuration.
-
-## Research Pattern: GitHub CLI over WebFetch
-
-**IMPORTANT:** When researching external code:
-
-| Action | Tool | Example |
-|--------|------|---------|
-| Find articles/docs | WebSearch, WebFetch | Search for "Permit2 integration guide" |
-| Read code from GitHub | **gh CLI** (NOT WebFetch) | `gh repo clone Uniswap/permit2 /tmp/permit2` |
-
-```bash
-# Clone repos to /tmp for local exploration
-gh repo clone Uniswap/permit2 /tmp/permit2
-gh repo clone dragonfly-xyz/useful-solidity-patterns /tmp/solidity-patterns
-
-# Then read locally
-cat /tmp/permit2/src/SignatureTransfer.sol
-cat /tmp/permit2/src/interfaces/ISignatureTransfer.sol
-```
-
-**Why:** WebFetch on GitHub returns HTML wrappers, not raw code. Cloning gives you actual source files.
+- [Uniswap Permit2 Docs](https://docs.uniswap.org/contracts/permit2/overview)
+- `demo/permit2/README.md` - Demo documentation
+- `docs/03-sdk-reference/mechanisms/evm-permit2.md` - SDK docs
 
 ## Legacy Warning
 
-**NEVER read or reference any path containing `/legacy/`** - these contain V1 implementations with incompatible patterns.
+**NEVER read or reference any path containing `/legacy/`**.
