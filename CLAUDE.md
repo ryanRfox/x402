@@ -6,9 +6,31 @@ This file provides context for extending the e2e test framework to support Permi
 
 **Add Permit2 support to the e2e test framework.** See `.claude/PROMPT-evm-exact-permit2.md` for full requirements.
 
+## Status
+
+- [x] E2E environment configured and working (see `.claude/SUMMARY-E2E-ENV-SETUP.md`)
+- [x] EIP-3009 (USDC) tests passing
+- [x] HTTP payment flow understood (see `.claude/SUMMARY-HTTP-CAPTURE.md`, `.claude/SUMMARY-PAYMENT-REQUIRED.md`)
+- [ ] **TODO: Add `/protected-permit2` endpoint with WETH-only accepts**
+
 ## Quick Context
 
 The x402 SDK already supports Permit2 via `extra.assetTransferMethod: "permit2"`. The demo at `demo/permit2/` validates it works. Now we need to integrate into the main e2e tests at `/e2e`.
+
+## CRITICAL: Client Selection Behavior
+
+**The client selects which payment option to use from the server's `accepts` array.**
+
+The TypeScript client selection algorithm:
+1. Filter to supported networks
+2. **Prefer USDC over other tokens** (hardcoded preference)
+3. Return first USDC match, or first match if no USDC
+
+**THIS MEANS**: If you offer both USDC and WETH in the `accepts` array, the client will ALWAYS pick USDC and ignore WETH!
+
+**SOLUTION**: The Permit2 test endpoint MUST offer **ONLY WETH** - never include USDC as an option.
+
+See `.claude/SUMMARY-PAYMENT-REQUIRED.md` for full details on client selection logic.
 
 ## E2E Framework Architecture
 
@@ -149,24 +171,47 @@ Dispatches to either EIP-3009 or Permit2 based on `extra.assetTransferMethod`.
 
 ## Test Network Setup
 
-**Recommended**: Base Sepolia (`eip155:84532`)
+**Networks**: Base Sepolia (`eip155:84532`) AND Ethereum Sepolia (`eip155:11155111`)
 
-WETH address: `0x4200000000000000000000000000000000000006` (18 decimals)
-Permit2 address: `0x000000000022D473030F116dDEE9F6B43aC78BA3`
+### WETH Addresses (18 decimals)
+
+| Network | WETH Address |
+|---------|--------------|
+| Base Sepolia | `0x4200000000000000000000000000000000000006` |
+| Ethereum Sepolia | `0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9` |
+
+### Permit2 Address (same on all networks)
+
+`0x000000000022D473030F116dDEE9F6B43aC78BA3`
 
 ### Prerequisites for CLIENT Account
 
+The CLIENT account needs WETH balance and Permit2 approval on BOTH networks:
+
 ```bash
+# === Base Sepolia ===
 # 1. Wrap ETH to WETH
 cast send 0x4200000000000000000000000000000000000006 --value 0.01ether \
   --rpc-url https://sepolia.base.org --private-key $CLIENT_EVM_PRIVATE_KEY
 
-# 2. Approve Permit2
+# 2. Approve Permit2 for WETH
 cast send 0x4200000000000000000000000000000000000006 \
   "approve(address,uint256)" \
   0x000000000022D473030F116dDEE9F6B43aC78BA3 \
   0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
   --rpc-url https://sepolia.base.org --private-key $CLIENT_EVM_PRIVATE_KEY
+
+# === Ethereum Sepolia ===
+# 1. Wrap ETH to WETH
+cast send 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9 --value 0.01ether \
+  --rpc-url https://rpc.sepolia.org --private-key $CLIENT_EVM_PRIVATE_KEY
+
+# 2. Approve Permit2 for WETH
+cast send 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9 \
+  "approve(address,uint256)" \
+  0x000000000022D473030F116dDEE9F6B43aC78BA3 \
+  0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff \
+  --rpc-url https://rpc.sepolia.org --private-key $CLIENT_EVM_PRIVATE_KEY
 ```
 
 ## V2 API Patterns
@@ -229,6 +274,8 @@ feat(e2e): add permit2 endpoint to test framework
 - Document prerequisites for CLIENT account
 ```
 
+**IMPORTANT**: Do NOT include Claude advertisements, "Generated with Claude Code" links, or Co-Authored-By lines in commit messages. Keep commits clean and professional.
+
 Sign commits: `git commit -s -m "..."`
 
 ## Constraints
@@ -237,8 +284,24 @@ Sign commits: `git commit -s -m "..."`
 2. **EVM only** - Skip SVM for this effort
 3. **Use explicit AssetAmount** - Not `"$0.001"` shorthand for Permit2
 
+## Running E2E Tests
+
+```bash
+# Run ONLY the Permit2 test (once endpoint is added)
+cd /Users/fox/Getting\ Started/x402/e2e && \
+  pnpm test --facilitators=typescript --servers=express --clients=fetch --families=evm
+
+# Filter to specific endpoint (if supported)
+# The test framework discovers endpoints from test.config.json
+```
+
+See `.claude/SUMMARY-E2E-ENV-SETUP.md` for full environment setup and troubleshooting.
+
 ## References
 
+- `.claude/SUMMARY-E2E-ENV-SETUP.md` - E2E environment configuration
+- `.claude/SUMMARY-HTTP-CAPTURE.md` - HTTP header capture technique
+- `.claude/SUMMARY-PAYMENT-REQUIRED.md` - Payment header schema and client selection
 - [Uniswap Permit2 Docs](https://docs.uniswap.org/contracts/permit2/overview)
 - `demo/permit2/README.md` - Demo documentation
 - `docs/03-sdk-reference/mechanisms/evm-permit2.md` - SDK docs
