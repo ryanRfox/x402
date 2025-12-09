@@ -2,7 +2,7 @@
 
 ## Title
 
-Roadmap: Arbitrary Token Support via Permit2 Settlement Contract
+Roadmap: Arbitrary Token Support via Permit2 + Settlement Contract
 
 ---
 
@@ -16,32 +16,7 @@ This is a contribution proposal for **Arbitrary Token Support** from the [x402 R
 
 ### Goals
 
-Extend the existing `exact` EVM scheme to support **any ERC-20 token** using `permit2.permitWitnessTransferFrom()` while **preserving x402's trust-minimization guarantees**.
-
-### Wallet Compatibility
-
-This solution supports **all EVM wallet types**, not just EOAs:
-
-| Wallet Type | Signature Method | Supported |
-|-------------|------------------|-----------|
-| **EOA** | ECDSA (`ecrecover`) | Yes |
-| **ERC-4337 Smart Wallet** | ERC-1271 `isValidSignature` | Yes |
-| **EIP-7702 Upgraded EOA** | ERC-1271 | Yes |
-| **Gnosis Safe / Multisig** | ERC-1271 | Yes |
-
-**How it works**: Permit2's `SignatureVerification` library automatically detects wallet type:
-
-```solidity
-if (claimedSigner.code.length == 0) {
-    // EOA: verify via ecrecover
-    address signer = ecrecover(hash, v, r, s);
-} else {
-    // Smart contract: verify via ERC-1271
-    bytes4 magicValue = IERC1271(claimedSigner).isValidSignature(hash, signature);
-}
-```
-
-This means 4337 wallets, Safe multisigs, and future 7702-upgraded EOAs can all use x402 Permit2 payments without any protocol changes. The only requirement is that the wallet implements ERC-1271 (which all major smart wallet standards require).
+Extend the existing `exact` EVM scheme to support **any ERC-20 token** while preserving x402's **trust-minimization guarantees**.
 
 ### Problem Statement
 
@@ -223,6 +198,31 @@ contract X402Settlement {
 
 Full implementation: ~100 lines, follows UniswapX patterns.
 
+### Wallet Compatibility
+
+This solution supports **all EVM wallet types**, not just EOAs:
+
+| Wallet Type | Signature Method | Supported |
+|-------------|------------------|-----------|
+| **EOA** | ECDSA (`ecrecover`) | Yes |
+| **ERC-4337 Smart Wallet** | ERC-1271 `isValidSignature` | Yes |
+| **EIP-7702 Upgraded EOA** | ERC-1271 | Yes |
+| **Gnosis Safe / Multisig** | ERC-1271 | Yes |
+
+**How it works**: Permit2's `SignatureVerification` library automatically detects wallet type:
+
+```solidity
+if (claimedSigner.code.length == 0) {
+    // EOA: verify via ecrecover
+    address signer = ecrecover(hash, v, r, s);
+} else {
+    // Smart contract: verify via ERC-1271
+    bytes4 magicValue = IERC1271(claimedSigner).isValidSignature(hash, signature);
+}
+```
+
+This means 4337 wallets, Safe multisigs, and future 7702-upgraded EOAs can all use x402 Permit2 payments without any protocol changes. The only requirement is that the wallet implements ERC-1271 (which all major smart wallet standards require).
+
 ### Deployment Strategy
 
 1. **Testnet first**: Base Sepolia, Ethereum Sepolia
@@ -233,12 +233,19 @@ Full implementation: ~100 lines, follows UniswapX patterns.
 
 ### Gas Analysis
 
-| Approach | Gas Cost | Overhead |
-|----------|----------|----------|
-| Direct Permit2 | ~20,000 | — |
-| Settlement Contract | ~26,000 | +30% (~$0.21 at 10 gwei) |
+Benchmarked on Base Sepolia fork using Foundry. See `GAS-ANALYSIS.md` for full methodology.
 
-The security benefit (trust-minimization) outweighs the marginal gas cost.
+| Payment Method | Gas Used | Overhead |
+|----------------|----------|----------|
+| EIP-3009 (`transferWithAuthorization`) | ~65,000* | — |
+| Permit2 Direct (`permitTransferFrom`) | 71,012 | — |
+| **Permit2 + Settlement** (`executePayment`) | **117,797** | +46,785 gas (+66%) |
+
+*EIP-3009 estimated from mainnet USDC; Base Sepolia USDC uses different implementation.
+
+**Why the overhead?** The settlement contract adds a two-hop transfer (Payer → Contract → Recipient), witness hash computation, event emission, and reentrancy protection. This is the cost of trust-minimization.
+
+**On L2s like Base**, the ~47k gas overhead typically costs <$0.01 at current gas prices.
 
 ### Draft Implementation Branch
 
