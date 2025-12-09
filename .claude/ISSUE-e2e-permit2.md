@@ -16,15 +16,40 @@ This is a contribution proposal for **Arbitrary Token Support** from the [x402 R
 
 ### Goals
 
-Extend the existing `exact` EVM scheme to support **any ERC-20 token** via Uniswap's Permit2, while **preserving x402's trust-minimization guarantees**.
+Extend the existing `exact` EVM scheme to support **any ERC-20 token** using `permit2.permitWitnessTransferFrom()` while **preserving x402's trust-minimization guarantees**.
+
+### Wallet Compatibility
+
+This solution supports **all EVM wallet types**, not just EOAs:
+
+| Wallet Type | Signature Method | Supported |
+|-------------|------------------|-----------|
+| **EOA** | ECDSA (`ecrecover`) | Yes |
+| **ERC-4337 Smart Wallet** | ERC-1271 `isValidSignature` | Yes |
+| **EIP-7702 Upgraded EOA** | ERC-1271 | Yes |
+| **Gnosis Safe / Multisig** | ERC-1271 | Yes |
+
+**How it works**: Permit2's `SignatureVerification` library automatically detects wallet type:
+
+```solidity
+if (claimedSigner.code.length == 0) {
+    // EOA: verify via ecrecover
+    address signer = ecrecover(hash, v, r, s);
+} else {
+    // Smart contract: verify via ERC-1271
+    bytes4 magicValue = IERC1271(claimedSigner).isValidSignature(hash, signature);
+}
+```
+
+This means 4337 wallets, Safe multisigs, and future 7702-upgraded EOAs can all use x402 Permit2 payments without any protocol changes. The only requirement is that the wallet implements ERC-1271 (which all major smart wallet standards require).
 
 ### Problem Statement
 
-EIP-3009 (used by USDC) includes the `to` field in the signed message, making it trust-minimized—the facilitator cannot redirect funds. However, Permit2's `permitTransferFrom()` does NOT include the recipient in the signature. The caller (facilitator) controls `transferDetails.to` at execution time.
+EIP-3009 (used by USDC) includes the `to` field in the signed message, making it trust-minimized (the facilitator cannot redirect funds). However, Permit2's `permitTransferFrom()` does NOT include the recipient in the signature. The caller (facilitator) controls `transferDetails.to` at execution time.
 
 **This creates a trust gap**: A malicious facilitator could redirect payments to themselves.
 
-This concern was previously raised in #485 and explored via EIP-7702 in #576.
+This concern was previously raised in #485 and explored further via EIP-7702 in #576.
 
 ### Scope: V2 Only
 
@@ -37,7 +62,7 @@ This proposal targets **x402 V2 exclusively**. We are not pursuing backwards com
 
 ### Proposed Solution: Settlement Contract
 
-Following the industry-standard pattern used by **UniswapX**, **Across Protocol**, and **ERC-7683**, we propose deploying a canonical **x402 Settlement Contract** that enforces recipient constraints on-chain.
+Following the industry-standard pattern used by **UniswapX**, **Across Protocol**, and **ERC-7683**, we propose defining and deploying a canonical **x402 Settlement Contract** that enforces recipient constraints on-chain.
 
 #### Architecture
 
@@ -45,7 +70,7 @@ Following the industry-standard pattern used by **UniswapX**, **Across Protocol*
 ┌─────────────────────────────────────────────────────────────┐
 │  TransparentUpgradeableProxy (canonical address per chain)  │
 │    ├── implementation → X402SettlementV1                    │
-│    └── admin → x402 Multisig                                │
+│    └── admin → x402 Multisig (x402 Foundation)              │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -93,7 +118,7 @@ Payer signs: { token, amount, recipient: SELLER, paymentId, nonce, deadline }
 
 ### Specification: `assetTransferMethod` Field
 
-This proposal introduces a new field `extra.assetTransferMethod` to the EVM scheme. This field does not exist in the current V2 codebase and is being introduced as part of this PR.
+This proposal introduces a new field `extra.assetTransferMethod` to the EVM scheme. This field does not exist in the current V2 codebase and is being introduced as part of this proposal.
 
 #### Type Definition
 
@@ -106,7 +131,7 @@ type AssetTransferMethod = "eip3009" | "permit2";
 | Value | Transfer Mechanism | Trust Model |
 |-------|-------------------|-------------|
 | `"eip3009"` (default) | EIP-3009 `transferWithAuthorization` | Trust-minimized (recipient in signature) |
-| `"permit2"` | Permit2 + Settlement Contract | Trust-minimized (recipient in witness) |
+| `"permit2"` | Permit2 + Cononical Settlement Contract | Trust-minimized (recipient in witness) |
 
 #### Default Behavior
 
@@ -240,7 +265,7 @@ This PR proposed using Permit2's `permitTransferFrom()` directly, where the faci
 
 With naive Permit2, the facilitator controls `transferDetails.to`, allowing fund redirection.
 
-**Our Solution**: Use Permit2's `permitWitnessTransferFrom()` with a `PaymentOrder` witness that cryptographically binds the recipient into the signature, then enforce via settlement contract.
+**Our Solution**: Use Permit2's `permitWitnessTransferFrom()` with a `PaymentOrder` witness that cryptographically binds the recipient into the signature, then enforce via cononical settlement contract.
 
 #### 2. EIP-7702 Smart Wallet (#576)
 
@@ -248,15 +273,15 @@ With naive Permit2, the facilitator controls `transferDetails.to`, allowing fund
 
 This approach proposed using EIP-7702 to convert EOAs into smart wallets, enabling complex authorization logic including recipient binding.
 
-**Status**: Still being explored. EIP-7702 is cutting-edge and not yet widely supported.
+**Status**: Still being explored.
 
-**Why We Chose Settlement Contract**:
+**Why We Chose Settlement Contract First**:
 - **Broader compatibility**: Works with any EOA, no wallet upgrade required
 - **Battle-tested pattern**: UniswapX, Across Protocol use this approach in production
 - **Simpler deployment**: Single contract deployment per chain
 - **Immediate usability**: Works today on all EVM chains with Permit2
 
-**Future Compatibility**: Our settlement contract approach doesn't preclude EIP-7702. If/when smart wallets become standard, x402 could add `assetTransferMethod: "eip7702"` as an additional option.
+**Important**: These approaches are **complementary, not mutually exclusive**. As noted in "Wallet Compatibility" above, our Permit2 settlement contract already supports EIP-7702 upgraded wallets via ERC-1271. A user with a 7702 wallet can use `assetTransferMethod: "permit2"` today. A future `assetTransferMethod: "eip7702"` could offer an alternative flow that bypasses Permit2 entirely, but this is additive.
 
 #### 3. ERC Standards Research
 
