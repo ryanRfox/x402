@@ -231,22 +231,6 @@ This means 4337 wallets, Safe multisigs, and future 7702-upgraded EOAs can all u
 4. **CREATE2 deployment**: Same address across all chains
 5. **Audit required**: Before mainnet deployment
 
-### Gas Analysis
-
-Benchmarked on Base Sepolia fork using Foundry. See `GAS-ANALYSIS.md` for full methodology.
-
-| Payment Method | Gas Used | Overhead |
-|----------------|----------|----------|
-| EIP-3009 (`transferWithAuthorization`) | ~65,000* | — |
-| Permit2 Direct (`permitTransferFrom`) | 71,012 | — |
-| **Permit2 + Settlement** (`executePayment`) | **117,797** | +46,785 gas (+66%) |
-
-*EIP-3009 estimated from mainnet USDC; Base Sepolia USDC uses different implementation.
-
-**Why the overhead?** The settlement contract adds a two-hop transfer (Payer → Contract → Recipient), witness hash computation, event emission, and reentrancy protection. This is the cost of trust-minimization.
-
-**On L2s like Base**, the ~47k gas overhead typically costs <$0.01 at current gas prices.
-
 ### Draft Implementation Branch
 
 `ryanrfox/x402:feature/evm-exact-permit2`
