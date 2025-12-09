@@ -11,7 +11,10 @@ This file provides context for extending the e2e test framework to support Permi
 - [x] E2E environment configured and working (see `.claude/SUMMARY-E2E-ENV-SETUP.md`)
 - [x] EIP-3009 (USDC) tests passing
 - [x] HTTP payment flow understood (see `.claude/SUMMARY-HTTP-CAPTURE.md`, `.claude/SUMMARY-PAYMENT-REQUIRED.md`)
-- [ ] **TODO: Add `/protected-permit2` endpoint with WETH-only accepts**
+- [x] `/protected-permit2` endpoint added with WETH + permit2
+- [x] Settlement contract implemented and tested (see `.claude/CODE-REVIEW-PERMIT2-SETTLEMENT.md`)
+- [x] E2E tests passing on Anvil fork (both USDC and Permit2 settlement)
+- [ ] **TODO: Deploy settlement contract to Base Sepolia**
 
 ## Quick Context
 
@@ -120,7 +123,7 @@ app.use(paymentMiddleware({
       price: {
         amount: "1000000000000000",  // 0.001 WETH
         asset: "0x4200000000000000000000000000000000000006",
-        extra: { assetTransferMethod: "permit2" },
+        extra: { assetTransferMethod: "permit2" },  // Uses settlement contract
       },
     },
     description: "Permit2 endpoint (WETH)",
@@ -297,6 +300,27 @@ cd /Users/fox/Getting\ Started/x402/e2e && \
 
 See `.claude/SUMMARY-E2E-ENV-SETUP.md` for full environment setup and troubleshooting.
 
+### Mise Shell Workaround
+
+**IMPORTANT**: If you encounter `permission denied` errors when running commands with environment variables, this is caused by `mise` (tool version manager) hooks in non-interactive shells.
+
+**Symptom**:
+```
+env: /Users/fox/.local/share/mise/installs/node/22.21.0/bin/node: Permission denied
+```
+
+**Solution**: Wrap commands in `/bin/bash -c '...'` to bypass mise hooks:
+
+```bash
+# Instead of:
+BASE_SEPOLIA_RPC_URL=http://localhost:8545 ./node_modules/.bin/tsx test.ts
+
+# Use:
+/bin/bash -c 'cd "/Users/fox/Getting Started/x402/e2e" && BASE_SEPOLIA_RPC_URL=http://localhost:8545 X402_SETTLEMENT_ADDRESS=0x... ./node_modules/.bin/tsx test.ts --facilitators=typescript --servers=express --clients=fetch --families=evm'
+```
+
+This bypasses the mise shim layer and runs commands directly.
+
 ## References
 
 - `.claude/SUMMARY-E2E-ENV-SETUP.md` - E2E environment configuration
@@ -306,6 +330,28 @@ See `.claude/SUMMARY-E2E-ENV-SETUP.md` for full environment setup and troublesho
 - `demo/permit2/README.md` - Demo documentation
 - `docs/03-sdk-reference/mechanisms/evm-permit2.md` - SDK docs
 
+## Research Pattern: GitHub CLI over WebFetch
+
+**IMPORTANT:** When researching external code:
+
+| Action | Tool | Example |
+|--------|------|---------|
+| Find articles/docs | WebSearch, WebFetch | Search for "Permit2 integration guide" |
+| Read code from GitHub | **gh CLI** (NOT WebFetch) | `gh repo clone Uniswap/permit2 /tmp/permit2` |
+
+```bash
+# Clone repos to /tmp for local exploration
+gh repo clone Uniswap/permit2 /tmp/permit2
+gh repo clone dragonfly-xyz/useful-solidity-patterns /tmp/solidity-patterns
+
+# Then read locally
+cat /tmp/permit2/src/SignatureTransfer.sol
+cat /tmp/permit2/src/interfaces/ISignatureTransfer.sol
+```
+
+**Why:** WebFetch on GitHub returns HTML wrappers, not raw code. Cloning gives you actual source files.
+
 ## Legacy Warning
 
-**NEVER read or reference any path containing `/legacy/`**.
+**NEVER read or reference any path containing `/legacy/`** - these contain V1 implementations with incompatible patterns.
+

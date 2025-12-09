@@ -9,4 +9,18 @@ export { toClientEvmSigner, toFacilitatorEvmSigner } from "./signer";
 export type { ClientEvmSigner, FacilitatorEvmSigner } from "./signer";
 
 // Permit2 constants (used by exact scheme with assetTransferMethod: "permit2")
-export { PERMIT2_ADDRESS, permit2Types, permit2ABI, erc20ABI } from "./permit2/constants";
+export {
+  PERMIT2_ADDRESS,
+  PERMIT2_ORDER_TYPE,
+  permit2WitnessTypes,
+  permit2ABI,
+  erc20ABI,
+  X402_SETTLEMENT_ADDRESSES,
+  x402SettlementABI,
+} from "./permit2/constants";
+
+// Types for Permit2
+export type {
+  PaymentOrder,
+  ExactPermit2Payload,
+} from "./types";

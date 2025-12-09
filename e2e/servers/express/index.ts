@@ -20,6 +20,9 @@ const EVM_NETWORK = "eip155:84532" as const;
 const SVM_NETWORK = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" as `${string}:${string}`;
 const EVM_PAYEE_ADDRESS = process.env.EVM_PAYEE_ADDRESS as `0x${string}`;
 const SVM_PAYEE_ADDRESS = process.env.SVM_PAYEE_ADDRESS as string;
+
+// WETH address on Base Sepolia (for Permit2 testing)
+const WETH_ADDRESS_BASE_SEPOLIA = "0x4200000000000000000000000000000000000006" as `0x${string}`;
 const facilitatorUrl = process.env.FACILITATOR_URL;
 
 if (!EVM_PAYEE_ADDRESS) {
@@ -116,6 +119,40 @@ app.use(
           }),
         },
       },
+      // Permit2 Settlement endpoint - WETH only (NOT USDC)
+      // Uses trust-minimized settlement contract pattern
+      // The client prefers USDC, so offering both would cause WETH/Permit2 to be ignored
+      "GET /protected-permit2": {
+        accepts: {
+          payTo: EVM_PAYEE_ADDRESS,
+          scheme: "exact",
+          network: EVM_NETWORK,
+          price: {
+            amount: "1000000000000000", // 0.001 WETH (18 decimals)
+            asset: WETH_ADDRESS_BASE_SEPOLIA,
+            extra: {
+              assetTransferMethod: "permit2",
+            },
+          },
+        },
+        extensions: {
+          ...declareDiscoveryExtension({
+            output: {
+              example: {
+                message: "Permit2 protected endpoint accessed successfully",
+                timestamp: "2024-01-01T00:00:00Z",
+              },
+              schema: {
+                properties: {
+                  message: { type: "string" },
+                  timestamp: { type: "string" },
+                },
+                required: ["message", "timestamp"],
+              },
+            },
+          }),
+        },
+      },
     },
     server, // Pass pre-configured server instance
   ),
@@ -143,6 +180,19 @@ app.get("/protected", (req, res) => {
 app.get("/protected-svm", (req, res) => {
   res.json({
     message: "Protected endpoint accessed successfully",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * Protected Permit2 endpoint - requires WETH payment via Permit2
+ *
+ * This endpoint demonstrates Permit2-based payments with WETH (not USDC).
+ * The client must have WETH balance and Permit2 approval.
+ */
+app.get("/protected-permit2", (req, res) => {
+  res.json({
+    message: "Permit2 protected endpoint accessed successfully",
     timestamp: new Date().toISOString(),
   });
 });
@@ -189,10 +239,11 @@ app.listen(parseInt(PORT), () => {
 ║  SVM Payee:      ${SVM_PAYEE_ADDRESS}                   ║
 ║                                                        ║
 ║  Endpoints:                                            ║
-║  • GET  /protected  (requires $0.001 USDC payment)    ║
-║  • GET  /protected-svm (requires $0.001 USDC payment) ║
-║  • GET  /health     (no payment required)             ║
-║  • POST /close      (shutdown server)                 ║
+║  • GET  /protected       ($0.001 USDC via EIP-3009)   ║
+║  • GET  /protected-svm   ($0.001 USDC via EIP-3009)   ║
+║  • GET  /protected-permit2 (0.001 WETH via Settlement)║
+║  • GET  /health          (no payment required)        ║
+║  • POST /close           (shutdown server)            ║
 ╚════════════════════════════════════════════════════════╝
   `);
 });

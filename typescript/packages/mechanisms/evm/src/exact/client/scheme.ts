@@ -1,13 +1,18 @@
 import { PaymentPayload, PaymentRequirements, SchemeNetworkClient } from "@x402/core/types";
-import { getAddress, toHex } from "viem";
+import { getAddress, keccak256, toHex, stringToBytes } from "viem";
 import { authorizationTypes } from "../../constants";
-import { PERMIT2_ADDRESS, permit2Types } from "../../permit2/constants";
+import {
+  PERMIT2_ADDRESS,
+  permit2WitnessTypes,
+  X402_SETTLEMENT_ADDRESSES,
+} from "../../permit2/constants";
 import { ClientEvmSigner } from "../../signer";
 import {
   AssetTransferMethod,
   ExactEIP3009Payload,
   ExactPermit2Payload,
   ExactEvmPayloadV2,
+  PaymentOrder,
 } from "../../types";
 import { createNonce } from "../../utils";
 
@@ -32,7 +37,7 @@ function generatePermit2Nonce(): bigint {
  *
  * Supports multiple asset transfer methods:
  * - `eip3009` (default): EIP-3009 TransferWithAuthorization (requires token support)
- * - `permit2`: Uniswap Permit2 SignatureTransfer (works with ANY ERC-20)
+ * - `permit2`: Uniswap Permit2 with settlement contract (works with ANY ERC-20)
  *
  * The transfer method is determined by `extra.assetTransferMethod` in payment requirements.
  */
@@ -51,7 +56,7 @@ export class ExactEvmScheme implements SchemeNetworkClient {
    *
    * Dispatches to the appropriate transfer method based on `extra.assetTransferMethod`:
    * - `eip3009` (default): Uses EIP-3009 TransferWithAuthorization
-   * - `permit2`: Uses Uniswap Permit2 SignatureTransfer
+   * - `permit2`: Uses Permit2 with settlement contract (trust-minimized)
    *
    * @param x402Version - The x402 protocol version
    * @param paymentRequirements - The payment requirements
@@ -108,7 +113,14 @@ export class ExactEvmScheme implements SchemeNetworkClient {
   }
 
   /**
-   * Create Permit2 SignatureTransfer payload
+   * Create Permit2 SignatureTransfer payload with settlement contract
+   *
+   * This method creates a trust-minimized signature that includes the recipient address
+   * via a PaymentOrder witness, preventing the facilitator from redirecting funds.
+   *
+   * The signature is over PermitWitnessTransferFrom with:
+   * - Spender: Settlement contract address (NOT facilitator)
+   * - Witness: PaymentOrder struct (includes recipient and paymentId)
    */
   private async createPermit2Payload(
     paymentRequirements: PaymentRequirements,
@@ -117,18 +129,34 @@ export class ExactEvmScheme implements SchemeNetworkClient {
     const now = Math.floor(Date.now() / 1000);
     const deadline = BigInt(now + paymentRequirements.maxTimeoutSeconds);
 
-    // The facilitator address is who will call Permit2.permitTransferFrom()
-    // It should be provided in extra.facilitator, or we use payTo as fallback
-    const spenderAddress = paymentRequirements.extra?.facilitator
-      ? getAddress(paymentRequirements.extra.facilitator as string)
-      : getAddress(paymentRequirements.payTo);
+    // Get settlement contract address for this network
+    const settlementAddress = X402_SETTLEMENT_ADDRESSES[paymentRequirements.network];
+    if (!settlementAddress || settlementAddress === "0x0000000000000000000000000000000000000000") {
+      throw new Error(
+        `Settlement contract not deployed on network ${paymentRequirements.network}. ` +
+          `Deploy settlement contract first or use EIP-3009 for supported tokens.`,
+      );
+    }
 
-    const signature = await this.signPermit2Transfer(
-      getAddress(paymentRequirements.asset),
-      BigInt(paymentRequirements.amount),
-      spenderAddress,
+    // Generate paymentId from resource URL
+    const resourceUrl = paymentRequirements.extra?.resourceUrl as string | undefined;
+    const paymentId = resourceUrl
+      ? (keccak256(stringToBytes(resourceUrl)) as `0x${string}`)
+      : (keccak256(stringToBytes("x402-payment")) as `0x${string}`);
+
+    // Build the PaymentOrder witness
+    const paymentOrder: PaymentOrder = {
+      token: getAddress(paymentRequirements.asset),
+      amount: BigInt(paymentRequirements.amount),
+      recipient: getAddress(paymentRequirements.payTo),
+      paymentId,
       nonce,
       deadline,
+    };
+
+    const signature = await this.signPermit2WitnessTransfer(
+      paymentOrder,
+      settlementAddress,
       paymentRequirements,
     );
 
@@ -138,6 +166,8 @@ export class ExactEvmScheme implements SchemeNetworkClient {
       nonce: nonce.toString(),
       deadline: deadline.toString(),
       owner: this.signer.address,
+      recipient: getAddress(paymentRequirements.payTo),
+      paymentId,
       signature,
     };
   }
@@ -184,39 +214,52 @@ export class ExactEvmScheme implements SchemeNetworkClient {
   }
 
   /**
-   * Sign the Permit2 SignatureTransfer message using EIP-712
+   * Sign the Permit2 PermitWitnessTransferFrom message using EIP-712
+   *
+   * This creates a trust-minimized signature that includes the recipient address
+   * via a PaymentOrder witness, preventing the facilitator from redirecting funds.
+   *
+   * The signature covers:
+   * - Token and amount (in permitted)
+   * - Settlement contract address (in spender)
+   * - Nonce and deadline
+   * - PaymentOrder witness (includes recipient, paymentId)
+   *
+   * @param paymentOrder - The payment order to sign (includes recipient)
+   * @param settlementContract - The settlement contract address (spender)
+   * @param requirements - The payment requirements
+   * @returns EIP-712 signature over PermitWitnessTransferFrom
    */
-  private async signPermit2Transfer(
-    token: `0x${string}`,
-    amount: bigint,
-    spender: `0x${string}`,
-    nonce: bigint,
-    deadline: bigint,
+  private async signPermit2WitnessTransfer(
+    paymentOrder: PaymentOrder,
+    settlementContract: `0x${string}`,
     requirements: PaymentRequirements,
   ): Promise<`0x${string}`> {
     const chainId = parseInt(requirements.network.split(":")[1]);
 
-    // Permit2 EIP-712 domain - note: no version field
+    // Permit2 EIP-712 domain
     const domain = {
       name: "Permit2",
       chainId,
       verifyingContract: PERMIT2_ADDRESS,
     };
 
+    // Build the PermitWitnessTransferFrom message
     const message = {
       permitted: {
-        token,
-        amount,
+        token: paymentOrder.token,
+        amount: paymentOrder.amount,
       },
-      spender,
-      nonce,
-      deadline,
+      spender: settlementContract,
+      nonce: paymentOrder.nonce,
+      deadline: paymentOrder.deadline,
+      witness: paymentOrder,
     };
 
     return await this.signer.signTypedData({
       domain,
-      types: permit2Types,
-      primaryType: "PermitTransferFrom",
+      types: permit2WitnessTypes,
+      primaryType: "PermitWitnessTransferFrom",
       message,
     });
   }
