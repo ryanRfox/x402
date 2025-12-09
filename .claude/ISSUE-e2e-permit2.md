@@ -26,6 +26,15 @@ EIP-3009 (used by USDC) includes the `to` field in the signed message, making it
 
 This concern was previously raised in #485 and explored via EIP-7702 in #576.
 
+### Scope: V2 Only
+
+This proposal targets **x402 V2 exclusively**. We are not pursuing backwards compatibility with V1 for the following reasons:
+
+1. **V1 has no extensibility mechanism**: The V1 payload types are fixed to EIP-3009's `authorization` structure
+2. **Clean separation of concerns**: V2's scheme registration pattern allows clean addition of new transfer methods
+3. **Simpler implementation**: No need for complex version detection or migration paths
+4. **Active development**: V2 is under active development (`development-v2` branch), making this the appropriate target
+
 ### Proposed Solution: Settlement Contract
 
 Following the industry-standard pattern used by **UniswapX**, **Across Protocol**, and **ERC-7683**, we propose deploying a canonical **x402 Settlement Contract** that enforces recipient constraints on-chain.
@@ -81,6 +90,46 @@ Payer signs: { token, amount, recipient: SELLER, paymentId, nonce, deadline }
 | TypeScript SDK | Client, Server, Facilitator support for `assetTransferMethod: "permit2"` |
 | E2E Tests | `/protected-permit2` endpoint with WETH on Base Sepolia |
 | Documentation | Usage guide, security considerations, deployment addresses |
+
+### Specification: `assetTransferMethod` Field
+
+This proposal introduces a new field `extra.assetTransferMethod` to the EVM scheme. This field does not exist in the current V2 codebase and is being introduced as part of this PR.
+
+#### Type Definition
+
+```typescript
+type AssetTransferMethod = "eip3009" | "permit2";
+```
+
+#### Semantics
+
+| Value | Transfer Mechanism | Trust Model |
+|-------|-------------------|-------------|
+| `"eip3009"` (default) | EIP-3009 `transferWithAuthorization` | Trust-minimized (recipient in signature) |
+| `"permit2"` | Permit2 + Settlement Contract | Trust-minimized (recipient in witness) |
+
+#### Default Behavior
+
+When `extra.assetTransferMethod` is absent or undefined:
+- **Server/Facilitator**: Assume `"eip3009"` (backwards compatible with existing V2 behavior)
+- **Client**: Select based on server's `accepts` requirements
+
+#### Wire Format
+
+The field appears in the `extra` object of payment requirements:
+
+```json
+{
+  "scheme": "exact",
+  "network": "eip155:84532",
+  "amount": "1000000000000000",
+  "asset": "0x4200000000000000000000000000000000000006",
+  "payTo": "0x...",
+  "extra": {
+    "assetTransferMethod": "permit2"
+  }
+}
+```
 
 ### API Design
 
@@ -177,12 +226,57 @@ The security benefit (trust-minimization) outweighs the marginal gas cost.
 3. Preferred location for contract code: `/contracts` in this repo or separate repo?
 4. Should we align with ERC-7683 struct definitions for cross-chain compatibility?
 
+### Alternatives Considered
+
+#### 1. Naive Permit2 (#485)
+
+**PR**: #485 by @chongqiangchen
+
+This PR proposed using Permit2's `permitTransferFrom()` directly, where the facilitator would call Permit2 and specify the recipient at execution time.
+
+**Why Rejected**: @erikreppel-cb [correctly identified](https://github.com/coinbase/x402/pull/485#pullrequestreview-2680055610) that this violates x402's trust-minimization principles:
+
+> "The crux of the trust-minimizing property of x402 is that all payment schemes must not allow for the facilitator or resource server to move funds, other than in accordance with client intentions."
+
+With naive Permit2, the facilitator controls `transferDetails.to`, allowing fund redirection.
+
+**Our Solution**: Use Permit2's `permitWitnessTransferFrom()` with a `PaymentOrder` witness that cryptographically binds the recipient into the signature, then enforce via settlement contract.
+
+#### 2. EIP-7702 Smart Wallet (#576)
+
+**PR**: #576 by @AmazingAng (WTF Academy)
+
+This approach proposed using EIP-7702 to convert EOAs into smart wallets, enabling complex authorization logic including recipient binding.
+
+**Status**: Still being explored. EIP-7702 is cutting-edge and not yet widely supported.
+
+**Why We Chose Settlement Contract**:
+- **Broader compatibility**: Works with any EOA, no wallet upgrade required
+- **Battle-tested pattern**: UniswapX, Across Protocol use this approach in production
+- **Simpler deployment**: Single contract deployment per chain
+- **Immediate usability**: Works today on all EVM chains with Permit2
+
+**Future Compatibility**: Our settlement contract approach doesn't preclude EIP-7702. If/when smart wallets become standard, x402 could add `assetTransferMethod: "eip7702"` as an additional option.
+
+#### 3. ERC Standards Research
+
+We investigated several ERC standards for trust-minimized token transfers:
+
+| Standard | Approach | Limitation |
+|----------|----------|------------|
+| EIP-3009 | `transferWithAuthorization` | USDC-only (requires token support) |
+| ERC-2612 | `permit` + `transferFrom` | Doesn't bind recipient in signature |
+| EIP-7702 | Smart wallet authorization | Requires wallet upgrade, new standard |
+
+**Conclusion**: Permit2 with witness is the most practical solution for arbitrary ERC-20 support while maintaining trust-minimization.
+
 ### Related
 
 - #705 - V2 SDK development
-- #485 - Original Permit2 trust concern
-- #576 - EIP-7702 alternative approach
+- #485 - Original Permit2 trust concern (naive approach, rejected)
+- #576 - EIP-7702 alternative approach (under exploration)
 - [UniswapX Reactor Pattern](https://github.com/Uniswap/UniswapX)
+- [Across Protocol SpokePool](https://github.com/across-protocol/contracts)
 - [ERC-7683: Cross Chain Intents](https://eips.ethereum.org/EIPS/eip-7683)
 
 ---
