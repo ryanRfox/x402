@@ -7,7 +7,6 @@
     "svm"
   ],
   "x402Versions": [
-    1,
     2
   ],
   "extensions": [
@@ -21,6 +20,7 @@
     ],
     "optional": [
       "EVM_NETWORK",
+      "EVM_RPC_URL",
       "SVM_NETWORK"
     ]
   }

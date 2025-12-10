@@ -16,10 +16,19 @@ dotenv.config();
  */
 
 const PORT = process.env.PORT || "4021";
-const EVM_NETWORK = "eip155:84532" as const;
+const EVM_NETWORK = (process.env.EVM_NETWORK || "eip155:84532") as `${string}:${string}`;
 const SVM_NETWORK = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" as `${string}:${string}`;
-const EVM_PAYEE_ADDRESS = process.env.EVM_PAYEE_ADDRESS as `0x${string}`;
-const SVM_PAYEE_ADDRESS = process.env.SVM_PAYEE_ADDRESS as string;
+const EVM_PAYEE_ADDRESS = process.env.EVM_PAYEE_ADDRESS || process.env.SERVER_EVM_ADDRESS as `0x${string}`;
+const SVM_PAYEE_ADDRESS = process.env.SVM_PAYEE_ADDRESS || process.env.SERVER_SVM_ADDRESS as string;
+
+// Permit2 token configuration (arbitrary ERC20 token)
+const PERMIT2_TOKEN_ADDRESS = (process.env.PERMIT2_TOKEN_ADDRESS || "0x4200000000000000000000000000000000000006") as `0x${string}`;
+const PERMIT2_TOKEN_DECIMALS = parseInt(process.env.PERMIT2_TOKEN_DECIMALS || "18", 10);
+
+// Calculate payment amount: 0.001 token in smallest units
+// Example: 0.001 WETH (18 decimals) = 1000000000000000
+// Example: 0.001 USDC (6 decimals) = 1000
+const PERMIT2_PAYMENT_AMOUNT = String(Math.pow(10, PERMIT2_TOKEN_DECIMALS) * 0.001);
 const facilitatorUrl = process.env.FACILITATOR_URL;
 
 if (!EVM_PAYEE_ADDRESS) {
@@ -116,6 +125,39 @@ app.use(
           }),
         },
       },
+      // Permit2 Settlement endpoint - arbitrary ERC20 token
+      // Uses trust-minimized settlement contract pattern
+      "GET /protected-permit2": {
+        accepts: {
+          payTo: EVM_PAYEE_ADDRESS,
+          scheme: "exact",
+          network: EVM_NETWORK,
+          price: {
+            amount: PERMIT2_PAYMENT_AMOUNT, // 0.001 token (amount adjusted for decimals)
+            asset: PERMIT2_TOKEN_ADDRESS,
+            extra: {
+              assetTransferMethod: "permit2",
+            },
+          },
+        },
+        extensions: {
+          ...declareDiscoveryExtension({
+            output: {
+              example: {
+                message: "Permit2 protected endpoint accessed successfully",
+                timestamp: "2024-01-01T00:00:00Z",
+              },
+              schema: {
+                properties: {
+                  message: { type: "string" },
+                  timestamp: { type: "string" },
+                },
+                required: ["message", "timestamp"],
+              },
+            },
+          }),
+        },
+      },
     },
     server, // Pass pre-configured server instance
   ),
@@ -143,6 +185,19 @@ app.get("/protected", (req, res) => {
 app.get("/protected-svm", (req, res) => {
   res.json({
     message: "Protected endpoint accessed successfully",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * Protected Permit2 endpoint - requires WETH payment via Permit2
+ *
+ * This endpoint demonstrates Permit2-based payments with WETH (not USDC).
+ * The client must have WETH balance and Permit2 approval.
+ */
+app.get("/protected-permit2", (req, res) => {
+  res.json({
+    message: "Permit2 protected endpoint accessed successfully",
     timestamp: new Date().toISOString(),
   });
 });
@@ -189,10 +244,12 @@ app.listen(parseInt(PORT), () => {
 ║  SVM Payee:      ${SVM_PAYEE_ADDRESS}                   ║
 ║                                                        ║
 ║  Endpoints:                                            ║
-║  • GET  /protected  (requires $0.001 USDC payment)    ║
-║  • GET  /protected-svm (requires $0.001 USDC payment) ║
-║  • GET  /health     (no payment required)             ║
-║  • POST /close      (shutdown server)                 ║
+║  • GET  /protected       ($0.001 USDC via EIP-3009)   ║
+║  • GET  /protected-svm   ($0.001 USDC via EIP-3009)   ║
+║  • GET  /protected-permit2 (0.001 token via Permit2)  ║
+║    Token: ${PERMIT2_TOKEN_ADDRESS.substring(0, 10)}... (${PERMIT2_TOKEN_DECIMALS} decimals)     ║
+║  • GET  /health          (no payment required)        ║
+║  • POST /close           (shutdown server)            ║
 ╚════════════════════════════════════════════════════════╝
   `);
 });

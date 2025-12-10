@@ -29,7 +29,7 @@ import { registerExactSvmScheme } from "@x402/svm/exact/facilitator";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import express from "express";
-import { createWalletClient, http, publicActions } from "viem";
+import { createWalletClient, http, publicActions, defineChain } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
 import { BazaarCatalog } from "./bazaar.js";
@@ -38,6 +38,8 @@ dotenv.config();
 
 // Configuration
 const PORT = process.env.PORT || "4022";
+const EVM_NETWORK = process.env.EVM_NETWORK || "eip155:84532";
+const EVM_RPC_URL = process.env.EVM_RPC_URL;
 
 // Validate required environment variables
 if (!process.env.EVM_PRIVATE_KEY) {
@@ -54,16 +56,31 @@ if (!process.env.SVM_PRIVATE_KEY) {
 const evmAccount = privateKeyToAccount(process.env.EVM_PRIVATE_KEY as `0x${string}`);
 console.info(`EVM Facilitator account: ${evmAccount.address}`);
 
-
-// Initialize the EVM account from private key
+// Initialize the SVM account from private key
 const svmAccount = await createKeyPairSignerFromBytes(base58.decode(process.env.SVM_PRIVATE_KEY as string));
-console.info(`EVM Facilitator account: ${evmAccount.address}`);
+console.info(`SVM Facilitator account: ${svmAccount.address}`);
+
+// Get chain ID from EVM_NETWORK
+const chainIdMatch = EVM_NETWORK.match(/eip155:(\d+)/);
+const chainId = chainIdMatch ? parseInt(chainIdMatch[1]) : 84532;
+
+// Create a custom chain definition if using non-standard network
+const chain = chainId === 84532 ? baseSepolia : defineChain({
+  id: chainId,
+  name: "Custom EVM Network",
+  nativeCurrency: { name: "Native", symbol: "ETH", decimals: 18 },
+  rpcUrls: {
+    default: { http: [EVM_RPC_URL || "http://localhost:8545"] },
+  },
+});
+
+console.info(`🔗 EVM Network: ${EVM_NETWORK}${EVM_RPC_URL ? ` (${EVM_RPC_URL})` : ' (default RPC)'}`);
 
 // Create a Viem client with both wallet and public capabilities
 const viemClient = createWalletClient({
   account: evmAccount,
-  chain: baseSepolia,
-  transport: http(),
+  chain: chain,
+  transport: EVM_RPC_URL ? http(EVM_RPC_URL) : http(),
 }).extend(publicActions);
 
 // Initialize the x402 Facilitator with EVM and SVM support
@@ -123,7 +140,7 @@ const facilitator = new x402Facilitator();
 // Register EVM and SVM schemes using the new register helpers
 registerExactEvmScheme(facilitator, {
   signer: evmSigner,
-  networks: "eip155:84532"  // Base Sepolia
+  networks: EVM_NETWORK
 });
 registerExactSvmScheme(facilitator, {
   signer: svmSigner,

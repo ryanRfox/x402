@@ -5,10 +5,17 @@ import {
   SettleResponse,
   VerifyResponse,
 } from "@x402/core/types";
-import { getAddress, Hex, isAddressEqual, parseErc6492Signature, parseSignature } from "viem";
+import { getAddress, Hex, isAddressEqual, parseErc6492Signature, parseSignature, recoverTypedDataAddress } from "viem";
 import { authorizationTypes, eip3009ABI } from "../../constants";
+import { PERMIT2_ADDRESS, erc20ABI, getX402SettlementAddresses, x402SettlementABI, permit2WitnessTypes } from "../../permit2/constants";
 import { FacilitatorEvmSigner } from "../../signer";
-import { ExactEvmPayloadV2 } from "../../types";
+import {
+  ExactEIP3009Payload,
+  ExactPermit2Payload,
+  ExactEvmPayloadV2,
+  isPermit2Payload,
+  isEIP3009Payload,
+} from "../../types";
 
 export interface ExactEvmSchemeConfig {
   /**
@@ -22,6 +29,13 @@ export interface ExactEvmSchemeConfig {
 
 /**
  * EVM facilitator implementation for the Exact payment scheme.
+ *
+ * Supports multiple asset transfer methods:
+ * - `eip3009` (default): EIP-3009 TransferWithAuthorization (requires token support)
+ * - `permit2`: Uniswap Permit2 via settlement contract (trust-minimized, works with ANY ERC-20)
+ *
+ * The transfer method is determined by `extra.assetTransferMethod` in payment requirements,
+ * or auto-detected from the payload structure.
  */
 export class ExactEvmScheme implements SchemeNetworkFacilitator {
   readonly scheme = "exact";
@@ -45,13 +59,17 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
 
   /**
    * Get mechanism-specific extra data for the supported kinds endpoint.
-   * For EVM, no extra data is needed.
+   * Returns Permit2 and settlement contract addresses.
    *
-   * @param _ - The network identifier (unused for EVM)
-   * @returns undefined (EVM has no extra data)
+   * @param network - The network identifier (CAIP-2 format)
+   * @returns Extra data including Permit2 and settlement contract addresses
    */
-  getExtra(_: string): Record<string, unknown> | undefined {
-    return undefined;
+  getExtra(network: string): Record<string, unknown> | undefined {
+    const settlementContract = getX402SettlementAddresses()[network];
+    return {
+      permit2Address: PERMIT2_ADDRESS,
+      settlementContract: settlementContract || undefined,
+    };
   }
 
   /**
@@ -68,6 +86,10 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
   /**
    * Verifies a payment payload.
    *
+   * Dispatches to the appropriate verification method based on payload structure:
+   * - Permit2 payloads (have `token`, `owner`, `deadline`, `recipient`, `paymentId`)
+   * - EIP-3009 payloads (have `authorization`)
+   *
    * @param payload - The payment payload to verify
    * @param requirements - The payment requirements
    * @returns Promise resolving to verification response
@@ -80,13 +102,49 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
 
     // Verify scheme matches
     if (payload.accepted.scheme !== "exact" || requirements.scheme !== "exact") {
+      const payer = isPermit2Payload(exactEvmPayload)
+        ? exactEvmPayload.owner
+        : (exactEvmPayload as ExactEIP3009Payload).authorization.from;
       return {
         isValid: false,
         invalidReason: "unsupported_scheme",
-        payer: exactEvmPayload.authorization.from,
+        payer,
       };
     }
 
+    // Verify network matches
+    if (payload.accepted.network !== requirements.network) {
+      const payer = isPermit2Payload(exactEvmPayload)
+        ? exactEvmPayload.owner
+        : (exactEvmPayload as ExactEIP3009Payload).authorization.from;
+      return {
+        isValid: false,
+        invalidReason: "network_mismatch",
+        payer,
+      };
+    }
+
+    // Dispatch based on payload type
+    if (isPermit2Payload(exactEvmPayload)) {
+      return this.verifyPermit2(exactEvmPayload, requirements);
+    } else if (isEIP3009Payload(exactEvmPayload)) {
+      return this.verifyEIP3009(exactEvmPayload, requirements);
+    } else {
+      return {
+        isValid: false,
+        invalidReason: "unknown_payload_type",
+        payer: "unknown",
+      };
+    }
+  }
+
+  /**
+   * Verify EIP-3009 TransferWithAuthorization payload
+   */
+  private async verifyEIP3009(
+    exactEvmPayload: ExactEIP3009Payload,
+    requirements: PaymentRequirements,
+  ): Promise<VerifyResponse> {
     // Get chain configuration
     if (!requirements.extra?.name || !requirements.extra?.version) {
       return {
@@ -98,15 +156,6 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
 
     const { name, version } = requirements.extra;
     const erc20Address = getAddress(requirements.asset);
-
-    // Verify network matches
-    if (payload.accepted.network !== requirements.network) {
-      return {
-        isValid: false,
-        invalidReason: "network_mismatch",
-        payer: exactEvmPayload.authorization.from,
-      };
-    }
 
     // Build typed data for signature verification
     const permitTypedData = {
@@ -258,7 +307,168 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
   }
 
   /**
+   * Verify Permit2 SignatureTransfer payload with settlement contract
+   */
+  private async verifyPermit2(
+    permit2Payload: ExactPermit2Payload,
+    requirements: PaymentRequirements,
+  ): Promise<VerifyResponse> {
+    const chainId = parseInt(requirements.network.split(":")[1]);
+
+    // Verify token matches
+    if (getAddress(permit2Payload.token) !== getAddress(requirements.asset)) {
+      return {
+        isValid: false,
+        invalidReason: "token_mismatch",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Verify recipient matches
+    if (getAddress(permit2Payload.recipient) !== getAddress(requirements.payTo)) {
+      return {
+        isValid: false,
+        invalidReason: "recipient_mismatch",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Get settlement contract address for this network (lazy-loaded to support env vars)
+    const settlementContract = getX402SettlementAddresses()[requirements.network];
+    if (!settlementContract || settlementContract === "0x0000000000000000000000000000000000000000") {
+      return {
+        isValid: false,
+        invalidReason: "settlement_contract_not_deployed",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Build the EIP-712 domain and message for verification
+    const domain = {
+      name: "Permit2",
+      chainId,
+      verifyingContract: PERMIT2_ADDRESS,
+    };
+
+    // Build the payment order (witness data)
+    const paymentOrder = {
+      token: getAddress(permit2Payload.token),
+      amount: BigInt(permit2Payload.amount),
+      recipient: getAddress(permit2Payload.recipient),
+      paymentId: permit2Payload.paymentId,
+      nonce: BigInt(permit2Payload.nonce),
+      deadline: BigInt(permit2Payload.deadline),
+    };
+
+    // The spender in Permit2 signature is the settlement contract
+    const message = {
+      permitted: {
+        token: paymentOrder.token,
+        amount: paymentOrder.amount,
+      },
+      spender: settlementContract,
+      nonce: paymentOrder.nonce,
+      deadline: paymentOrder.deadline,
+      witness: paymentOrder,
+    };
+
+    // Verify signature with witness
+    try {
+      const recoveredAddress = await recoverTypedDataAddress({
+        domain,
+        types: permit2WitnessTypes,
+        primaryType: "PermitWitnessTransferFrom",
+        message,
+        signature: permit2Payload.signature,
+      });
+
+      if (getAddress(recoveredAddress) !== getAddress(permit2Payload.owner)) {
+        return {
+          isValid: false,
+          invalidReason: "invalid_permit2_signature",
+          payer: permit2Payload.owner,
+        };
+      }
+    } catch {
+      return {
+        isValid: false,
+        invalidReason: "invalid_permit2_signature",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Verify deadline is in the future (with buffer for block time)
+    const now = Math.floor(Date.now() / 1000);
+    if (BigInt(permit2Payload.deadline) < BigInt(now + 6)) {
+      return {
+        isValid: false,
+        invalidReason: "permit2_deadline_expired",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Verify amount is sufficient
+    if (BigInt(permit2Payload.amount) < BigInt(requirements.amount)) {
+      return {
+        isValid: false,
+        invalidReason: "insufficient_amount",
+        payer: permit2Payload.owner,
+      };
+    }
+
+    // Check payer's token balance
+    try {
+      const balance = (await this.signer.readContract({
+        address: getAddress(permit2Payload.token),
+        abi: erc20ABI,
+        functionName: "balanceOf",
+        args: [permit2Payload.owner],
+      })) as bigint;
+
+      if (balance < BigInt(requirements.amount)) {
+        return {
+          isValid: false,
+          invalidReason: "insufficient_funds",
+          payer: permit2Payload.owner,
+        };
+      }
+    } catch {
+      // If balance check fails, continue - will fail at settlement if funds are insufficient
+    }
+
+    // Check payer's Permit2 allowance
+    try {
+      const allowance = (await this.signer.readContract({
+        address: getAddress(permit2Payload.token),
+        abi: erc20ABI,
+        functionName: "allowance",
+        args: [permit2Payload.owner, PERMIT2_ADDRESS],
+      })) as bigint;
+
+      if (allowance < BigInt(requirements.amount)) {
+        return {
+          isValid: false,
+          invalidReason: "insufficient_permit2_allowance",
+          payer: permit2Payload.owner,
+        };
+      }
+    } catch {
+      // If allowance check fails, continue - will fail at settlement
+    }
+
+    return {
+      isValid: true,
+      invalidReason: undefined,
+      payer: permit2Payload.owner,
+    };
+  }
+
+  /**
    * Settles a payment by executing the transfer.
+   *
+   * Dispatches to the appropriate settlement method based on payload structure:
+   * - Permit2 payloads use settlement contract's executePayment()
+   * - EIP-3009 payloads use token.transferWithAuthorization()
    *
    * @param payload - The payment payload to settle
    * @param requirements - The payment requirements
@@ -273,15 +483,42 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
     // Re-verify before settling
     const valid = await this.verify(payload, requirements);
     if (!valid.isValid) {
+      const payer = isPermit2Payload(exactEvmPayload)
+        ? exactEvmPayload.owner
+        : (exactEvmPayload as ExactEIP3009Payload).authorization.from;
       return {
         success: false,
         network: payload.accepted.network,
         transaction: "",
         errorReason: valid.invalidReason ?? "invalid_scheme",
-        payer: exactEvmPayload.authorization.from,
+        payer,
       };
     }
 
+    // Dispatch based on payload type
+    if (isPermit2Payload(exactEvmPayload)) {
+      return this.settlePermit2(exactEvmPayload, payload, requirements);
+    } else if (isEIP3009Payload(exactEvmPayload)) {
+      return this.settleEIP3009(exactEvmPayload, payload, requirements);
+    } else {
+      return {
+        success: false,
+        network: payload.accepted.network,
+        transaction: "",
+        errorReason: "unknown_payload_type",
+        payer: "unknown",
+      };
+    }
+  }
+
+  /**
+   * Settle EIP-3009 TransferWithAuthorization payment
+   */
+  private async settleEIP3009(
+    exactEvmPayload: ExactEIP3009Payload,
+    payload: PaymentPayload,
+    requirements: PaymentRequirements,
+  ): Promise<SettleResponse> {
     try {
       // Parse ERC-6492 signature if applicable
       const parseResult = parseErc6492Signature(exactEvmPayload.signature!);
@@ -388,13 +625,90 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
         payer: exactEvmPayload.authorization.from,
       };
     } catch (error) {
-      console.error("Failed to settle transaction:", error);
+      console.error("Failed to settle EIP-3009 transaction:", error);
       return {
         success: false,
         errorReason: "transaction_failed",
         transaction: "",
         network: payload.accepted.network,
         payer: exactEvmPayload.authorization.from,
+      };
+    }
+  }
+
+  /**
+   * Settle Permit2 SignatureTransfer payment via settlement contract
+   *
+   * Calls the settlement contract's executePayment function which:
+   * 1. Validates the signature covers the payment order (including recipient)
+   * 2. Calls Permit2 to transfer tokens to the settlement contract
+   * 3. Transfers tokens from settlement contract to the validated recipient
+   *
+   * This prevents the facilitator from redirecting funds.
+   */
+  private async settlePermit2(
+    permit2Payload: ExactPermit2Payload,
+    payload: PaymentPayload,
+    requirements: PaymentRequirements,
+  ): Promise<SettleResponse> {
+    try {
+      // Get settlement contract address (lazy-loaded to support env vars)
+      const settlementContract = getX402SettlementAddresses()[requirements.network];
+      if (!settlementContract || settlementContract === "0x0000000000000000000000000000000000000000") {
+        return {
+          success: false,
+          errorReason: "settlement_contract_not_deployed",
+          transaction: "",
+          network: payload.accepted.network,
+          payer: permit2Payload.owner,
+        };
+      }
+
+      // Build the payment order
+      const paymentOrder = {
+        token: getAddress(permit2Payload.token),
+        amount: BigInt(permit2Payload.amount),
+        recipient: getAddress(permit2Payload.recipient),
+        paymentId: permit2Payload.paymentId,
+        nonce: BigInt(permit2Payload.nonce),
+        deadline: BigInt(permit2Payload.deadline),
+      };
+
+      // Call settlement contract's executePayment function
+      const tx = await this.signer.writeContract({
+        address: settlementContract,
+        abi: x402SettlementABI,
+        functionName: "executePayment",
+        args: [paymentOrder, permit2Payload.owner, permit2Payload.signature],
+      });
+
+      // Wait for transaction confirmation
+      const receipt = await this.signer.waitForTransactionReceipt({ hash: tx });
+
+      if (receipt.status !== "success") {
+        return {
+          success: false,
+          errorReason: "transaction_failed",
+          transaction: tx,
+          network: payload.accepted.network,
+          payer: permit2Payload.owner,
+        };
+      }
+
+      return {
+        success: true,
+        transaction: tx,
+        network: payload.accepted.network,
+        payer: permit2Payload.owner,
+      };
+    } catch (error) {
+      console.error("Failed to settle via settlement contract:", error);
+      return {
+        success: false,
+        errorReason: "transaction_failed",
+        transaction: "",
+        network: payload.accepted.network,
+        payer: permit2Payload.owner,
       };
     }
   }

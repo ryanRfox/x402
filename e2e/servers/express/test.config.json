@@ -22,6 +22,14 @@
       "protocolFamily": "svm"
     },
     {
+      "path": "/protected-permit2",
+      "method": "GET",
+      "description": "Protected endpoint requiring WETH payment via Permit2",
+      "requiresPayment": true,
+      "protocolFamily": "evm",
+      "networks": ["eip155:84532"]
+    },
+    {
       "path": "/health",
       "method": "GET",
       "description": "Health check endpoint",

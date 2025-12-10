@@ -20,6 +20,10 @@ export interface ServerConfig {
 // Load environment variables
 config();
 
+// Network configuration from environment variables
+const EVM_NETWORK = process.env.EVM_NETWORK || 'eip155:84532';
+const SVM_NETWORK = process.env.SVM_NETWORK || 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
+
 // Parse command line arguments
 const parsedArgs = parseArgs();
 
@@ -419,8 +423,8 @@ async function runTest() {
     const manager = new FacilitatorManager(
       facilitator.proxy,
       port,
-      'eip155:84532',
-      'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1'
+      EVM_NETWORK,
+      SVM_NETWORK
     );
     facilitatorManagers.set(facilitatorName, manager);
   }
@@ -517,8 +521,8 @@ async function runTest() {
       port,
       evmPayTo: serverEvmAddress,
       svmPayTo: serverSvmAddress,
-      evmNetwork: 'eip155:84532',
-      svmNetwork: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+      evmNetwork: EVM_NETWORK,
+      svmNetwork: SVM_NETWORK,
       facilitatorUrl,
     };
 
