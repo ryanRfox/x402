@@ -7,7 +7,7 @@ import {
 } from "@x402/core/types";
 import { getAddress, Hex, isAddressEqual, parseErc6492Signature, parseSignature, recoverTypedDataAddress } from "viem";
 import { authorizationTypes, eip3009ABI } from "../../constants";
-import { PERMIT2_ADDRESS, erc20ABI, X402_SETTLEMENT_ADDRESSES, x402SettlementABI, permit2WitnessTypes } from "../../permit2/constants";
+import { PERMIT2_ADDRESS, erc20ABI, getX402SettlementAddresses, x402SettlementABI, permit2WitnessTypes } from "../../permit2/constants";
 import { FacilitatorEvmSigner } from "../../signer";
 import {
   ExactEIP3009Payload,
@@ -65,7 +65,7 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
    * @returns Extra data including Permit2 and settlement contract addresses
    */
   getExtra(network: string): Record<string, unknown> | undefined {
-    const settlementContract = X402_SETTLEMENT_ADDRESSES[network];
+    const settlementContract = getX402SettlementAddresses()[network];
     return {
       permit2Address: PERMIT2_ADDRESS,
       settlementContract: settlementContract || undefined,
@@ -333,8 +333,8 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
       };
     }
 
-    // Get settlement contract address for this network
-    const settlementContract = X402_SETTLEMENT_ADDRESSES[requirements.network];
+    // Get settlement contract address for this network (lazy-loaded to support env vars)
+    const settlementContract = getX402SettlementAddresses()[requirements.network];
     if (!settlementContract || settlementContract === "0x0000000000000000000000000000000000000000") {
       return {
         isValid: false,
@@ -652,8 +652,8 @@ export class ExactEvmScheme implements SchemeNetworkFacilitator {
     requirements: PaymentRequirements,
   ): Promise<SettleResponse> {
     try {
-      // Get settlement contract address
-      const settlementContract = X402_SETTLEMENT_ADDRESSES[requirements.network];
+      // Get settlement contract address (lazy-loaded to support env vars)
+      const settlementContract = getX402SettlementAddresses()[requirements.network];
       if (!settlementContract || settlementContract === "0x0000000000000000000000000000000000000000") {
         return {
           success: false,

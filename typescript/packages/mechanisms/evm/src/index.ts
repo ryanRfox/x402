@@ -15,7 +15,7 @@ export {
   permit2WitnessTypes,
   permit2ABI,
   erc20ABI,
-  X402_SETTLEMENT_ADDRESSES,
+  getX402SettlementAddresses,
   x402SettlementABI,
 } from "./permit2/constants";
 

@@ -4,7 +4,7 @@ import { authorizationTypes } from "../../constants";
 import {
   PERMIT2_ADDRESS,
   permit2WitnessTypes,
-  X402_SETTLEMENT_ADDRESSES,
+  getX402SettlementAddresses,
 } from "../../permit2/constants";
 import { ClientEvmSigner } from "../../signer";
 import {
@@ -129,8 +129,8 @@ export class ExactEvmScheme implements SchemeNetworkClient {
     const now = Math.floor(Date.now() / 1000);
     const deadline = BigInt(now + paymentRequirements.maxTimeoutSeconds);
 
-    // Get settlement contract address for this network
-    const settlementAddress = X402_SETTLEMENT_ADDRESSES[paymentRequirements.network];
+    // Get settlement contract address for this network (lazy-loaded to support env vars)
+    const settlementAddress = getX402SettlementAddresses()[paymentRequirements.network];
     if (!settlementAddress || settlementAddress === "0x0000000000000000000000000000000000000000") {
       throw new Error(
         `Settlement contract not deployed on network ${paymentRequirements.network}. ` +

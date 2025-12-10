@@ -45,19 +45,44 @@ const DEFAULT_SETTLEMENT_ADDRESSES: Record<string, `0x${string}`> = {
  */
 function getSettlementAddresses(): Record<string, `0x${string}`> {
   const globalOverride = process.env.X402_SETTLEMENT_ADDRESS as `0x${string}` | undefined;
+  const result: Record<string, `0x${string}`> = {};
 
-  return Object.fromEntries(
-    Object.entries(DEFAULT_SETTLEMENT_ADDRESSES).map(([network, defaultAddr]) => {
-      // Extract chain ID from network string (e.g., "eip155:84532" -> "84532")
-      const chainId = network.split(":")[1];
-      const networkOverride = process.env[`X402_SETTLEMENT_ADDRESS_${chainId}`] as `0x${string}` | undefined;
+  // First, process default addresses with environment variable overrides
+  Object.entries(DEFAULT_SETTLEMENT_ADDRESSES).forEach(([network, defaultAddr]) => {
+    // Extract chain ID from network string (e.g., "eip155:84532" -> "84532")
+    const chainId = network.split(":")[1];
+    const networkOverride = process.env[`X402_SETTLEMENT_ADDRESS_${chainId}`] as `0x${string}` | undefined;
 
-      // Priority: network-specific override > global override > default
-      const address = networkOverride || globalOverride || defaultAddr;
-      return [network, address];
-    }),
-  ) as Record<string, `0x${string}`>;
+    // Priority: network-specific override > global override > default
+    const address = networkOverride || globalOverride || defaultAddr;
+    result[network] = address;
+  });
+
+  // Then, scan for any additional X402_SETTLEMENT_ADDRESS_<CHAIN_ID> environment variables
+  // This allows configuring settlement contracts for networks not in DEFAULT_SETTLEMENT_ADDRESSES
+  const envKeys = Object.keys(process.env).filter(key => key.startsWith('X402_SETTLEMENT_ADDRESS_'));
+  if (envKeys.length > 0) {
+    console.error(`[SDK] Found ${envKeys.length} custom settlement address env vars: ${envKeys.join(', ')}`);
+  }
+
+  Object.entries(process.env).forEach(([key, value]) => {
+    if (key.startsWith('X402_SETTLEMENT_ADDRESS_') && key !== 'X402_SETTLEMENT_ADDRESS') {
+      const chainId = key.replace('X402_SETTLEMENT_ADDRESS_', '');
+      const network = `eip155:${chainId}`;
+
+      // Only add if not already processed above
+      if (!result[network] && value && value !== '0x0000000000000000000000000000000000000000') {
+        console.error(`[SDK] Adding custom settlement contract for ${network}: ${value.substring(0, 10)}...`);
+        result[network] = value as `0x${string}`;
+      }
+    }
+  });
+
+  return result;
 }
+
+// Lazy-loaded cache for settlement addresses (loaded on first access)
+let cachedSettlementAddresses: Record<string, `0x${string}`> | null = null;
 
 /**
  * x402 Settlement Contract addresses by network
@@ -65,8 +90,21 @@ function getSettlementAddresses(): Record<string, `0x${string}`> {
  * Can be overridden via environment variables for local testing:
  * - X402_SETTLEMENT_ADDRESS: Override for all networks
  * - X402_SETTLEMENT_ADDRESS_<CHAIN_ID>: Override for specific network
+ *
+ * NOTE: This getter is lazy-loaded to ensure environment variables are available
+ * at the time of first access, not at module import time.
  */
-export const X402_SETTLEMENT_ADDRESSES = getSettlementAddresses();
+export function getX402SettlementAddresses(): Record<string, `0x${string}`> {
+  if (!cachedSettlementAddresses) {
+    cachedSettlementAddresses = getSettlementAddresses();
+  }
+  return cachedSettlementAddresses;
+}
+
+// IMPORTANT: Use getX402SettlementAddresses() instead of X402_SETTLEMENT_ADDRESSES
+// The constant was removed because ES module imports are hoisted, causing the
+// evaluation to happen before environment variables are set (e.g., via dotenv).
+// Using the function ensures lazy evaluation at runtime.
 
 /**
  * EIP-712 types for Permit2 SignatureTransfer with PaymentOrder witness
