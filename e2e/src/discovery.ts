@@ -243,6 +243,10 @@ export class TestDiscovery {
   private buildFacilitatorNetworkCombos(facilitators: DiscoveredFacilitator[]): void {
     facilitatorNetworkCombos = [];
 
+    // Read networks from environment variables (fallback to defaults)
+    const evmNetwork = process.env.EVM_NETWORK || 'eip155:84532';
+    const svmNetwork = process.env.SVM_NETWORK || 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1';
+
     for (const facilitator of facilitators) {
       const protocolFamilies = facilitator.config.protocolFamilies || ['evm'];
       const x402Versions = facilitator.config.x402Versions || [2];
@@ -253,7 +257,7 @@ export class TestDiscovery {
           if (protocolFamily === 'evm') {
             facilitatorNetworkCombos.push({
               useCdpFacilitator: false,
-              network: 'eip155:84532',
+              network: evmNetwork,
               protocolFamily: protocolFamily as ProtocolFamily,
               x402Version,
               facilitatorName: facilitator.name
@@ -261,7 +265,7 @@ export class TestDiscovery {
           } else if (protocolFamily === 'svm') {
             facilitatorNetworkCombos.push({
               useCdpFacilitator: false,
-              network: 'solana:devnet',
+              network: svmNetwork,
               protocolFamily: protocolFamily as ProtocolFamily,
               x402Version,
               facilitatorName: facilitator.name
@@ -275,7 +279,7 @@ export class TestDiscovery {
     if (facilitatorNetworkCombos.length === 0) {
       facilitatorNetworkCombos.push({
         useCdpFacilitator: false,
-        network: 'eip155:84532',
+        network: evmNetwork,
         protocolFamily: 'evm',
         x402Version: 2
       });
@@ -340,6 +344,13 @@ export class TestDiscovery {
               // Skip if facilitator doesn't support the server's x402 version
               if (combo.x402Version !== serverVersion) {
                 verboseLog(`  ⚠️  Skipping facilitator ${combo.facilitatorName} for ${server.name}: Version mismatch (facilitator supports v${combo.x402Version}, server implements v${serverVersion})`);
+                continue;
+              }
+
+              // Skip certain endpoints on Radius Testnet (eip155:1223953)
+              // Only /protected-permit2 works on Radius because USDC shorthand requires SDK configuration
+              if (combo.network === 'eip155:1223953' && (endpoint.path === '/protected' || endpoint.path === '/protected-svm')) {
+                verboseLog(`  ⚠️  Skipping ${endpoint.path} on Radius Testnet (only /protected-permit2 supported)`);
                 continue;
               }
 

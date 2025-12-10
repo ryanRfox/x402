@@ -18,14 +18,27 @@ export class GenericClientProxy extends BaseProxy implements ClientProxy {
 
   async call(config: ClientConfig): Promise<ClientCallResult> {
     try {
-      const runConfig: RunConfig = {
-        env: {
-          EVM_PRIVATE_KEY: config.evmPrivateKey,
-          SVM_PRIVATE_KEY: config.svmPrivateKey,
-          RESOURCE_SERVER_URL: config.serverUrl,
-          ENDPOINT_PATH: config.endpointPath,
-        }
+      // Start with required environment variables
+      const env: Record<string, string> = {
+        EVM_PRIVATE_KEY: config.evmPrivateKey,
+        SVM_PRIVATE_KEY: config.svmPrivateKey,
+        RESOURCE_SERVER_URL: config.serverUrl,
+        ENDPOINT_PATH: config.endpointPath,
       };
+
+      // Pass through X402_SETTLEMENT_ADDRESS environment variables for Permit2
+      const settlementVars = Object.entries(process.env).filter(([key]) =>
+        key === 'X402_SETTLEMENT_ADDRESS' || key.startsWith('X402_SETTLEMENT_ADDRESS_')
+      );
+      console.error(`[GenericClientProxy] Found ${settlementVars.length} settlement vars in parent process.env: ${settlementVars.map(([k]) => k).join(', ')}`);
+      settlementVars.forEach(([key, value]) => {
+        if (value) {
+          env[key] = value;
+          console.error(`[GenericClientProxy] Passing ${key} to child process`);
+        }
+      });
+
+      const runConfig: RunConfig = { env };
 
       // For clients, we run the process and wait for it to complete
       const result = await this.runOneShotProcess(runConfig);
