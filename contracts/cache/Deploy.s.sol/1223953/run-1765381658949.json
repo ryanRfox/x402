@@ -1,0 +1,13 @@
+{
+  "transactions": [
+    {
+      "rpc": "https://rpc.testnet.radiustech.xyz"
+    },
+    {
+      "rpc": "https://rpc.testnet.radiustech.xyz"
+    },
+    {
+      "rpc": "https://rpc.testnet.radiustech.xyz"
+    }
+  ]
+}
