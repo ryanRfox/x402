@@ -23,6 +23,11 @@ config();
 // Parse command line arguments
 const parsedArgs = parseArgs();
 
+// Set PROTOCOL_FAMILIES environment variable for child processes
+if (parsedArgs.filters.protocolFamilies && parsedArgs.filters.protocolFamilies.length > 0) {
+  process.env.PROTOCOL_FAMILIES = parsedArgs.filters.protocolFamilies.join(',');
+}
+
 interface Facilitator {
   start: (config: { port: number; evmPrivateKey: string; svmPrivateKey: string; evmNetwork: string; svmNetwork: string; }) => Promise<void>;
   health: () => Promise<{ success: boolean }>;
@@ -37,15 +42,15 @@ class FacilitatorManager {
   private readyPromise: Promise<string | null>;
   private url: string | null = null;
 
-  constructor(facilitator: Facilitator, port: number, evmNetwork: string, svmNetwork: string) {
+  constructor(facilitator: Facilitator, port: number, evmNetwork: string, svmNetwork: string, protocolFamilies?: string[]) {
     this.facilitator = facilitator;
     this.port = port;
 
     // Start facilitator and health checks asynchronously
-    this.readyPromise = this.startAndWaitForHealth(evmNetwork, svmNetwork);
+    this.readyPromise = this.startAndWaitForHealth(evmNetwork, svmNetwork, protocolFamilies);
   }
 
-  private async startAndWaitForHealth(evmNetwork: string, svmNetwork: string): Promise<string | null> {
+  private async startAndWaitForHealth(evmNetwork: string, svmNetwork: string, protocolFamilies?: string[]): Promise<string | null> {
     verboseLog(`  🏛️ Starting facilitator on port ${this.port}...`);
 
     await this.facilitator.start({
@@ -54,6 +59,7 @@ class FacilitatorManager {
       svmPrivateKey: process.env.FACILITATOR_SVM_PRIVATE_KEY,
       evmNetwork,
       svmNetwork,
+      protocolFamilies,
     });
 
     // Wait for facilitator to be healthy
@@ -236,18 +242,62 @@ async function runTest() {
   log('🚀 Starting X402 E2E Test Suite');
   log('===============================');
 
-  // Load configuration from environment
-  const serverEvmAddress = process.env.SERVER_EVM_ADDRESS;
-  const serverSvmAddress = process.env.SERVER_SVM_ADDRESS;
-  const clientEvmPrivateKey = process.env.CLIENT_EVM_PRIVATE_KEY;
-  const clientSvmPrivateKey = process.env.CLIENT_SVM_PRIVATE_KEY;
-  const facilitatorEvmPrivateKey = process.env.FACILITATOR_EVM_PRIVATE_KEY;
-  const facilitatorSvmPrivateKey = process.env.FACILITATOR_SVM_PRIVATE_KEY;
+  // Helper function for network-aware environment variable resolution
+  function getNetworkConfigValue(baseKey: string, optional = false): string | undefined {
+    const networkStr = process.env.EVM_NETWORK;
+    if (!networkStr) {
+      if (optional) return undefined;
+      throw new Error('EVM_NETWORK not set in environment');
+    }
+    const parts = networkStr.split(':');
+    if (parts.length !== 2 || !parts[1]) {
+      throw new Error(`Invalid EVM_NETWORK format: "${networkStr}". Expected format: "eip155:${CHAIN_ID}"`);
+    }
+    const chainId = parts[1];
+    const suffixedKey = `${baseKey}_${chainId}`;
+    const value = process.env[suffixedKey] || process.env[baseKey];
+    if (!value) {
+      if (optional) return undefined;
+      throw new Error(`${baseKey} not configured for network ${networkStr}`);
+    }
+    return value;
+  }
 
-  if (!serverEvmAddress || !serverSvmAddress || !clientEvmPrivateKey || !clientSvmPrivateKey || !facilitatorEvmPrivateKey || !facilitatorSvmPrivateKey) {
-    errorLog('❌ Missing required environment variables:');
-    errorLog('   SERVER_EVM_ADDRESS, SERVER_SVM_ADDRESS, CLIENT_EVM_PRIVATE_KEY, CLIENT_SVM_PRIVATE_KEY, FACILITATOR_EVM_PRIVATE_KEY, and FACILITATOR_SVM_PRIVATE_KEY must be set');
+  // Load configuration from environment (with network-aware fallback)
+  const serverEvmAddress = getNetworkConfigValue('SERVER_EVM_ADDRESS');
+  const serverSvmAddress = getNetworkConfigValue('SERVER_SVM_ADDRESS', true) || 'DummySolanaAddressNotUsedForEVMTests11111111111';
+  const clientEvmPrivateKey = getNetworkConfigValue('CLIENT_EVM_PRIVATE_KEY');
+  const clientSvmPrivateKey = getNetworkConfigValue('CLIENT_SVM_PRIVATE_KEY', true) || process.env.CLIENT_SVM_PRIVATE_KEY;
+  const facilitatorEvmPrivateKey = getNetworkConfigValue('FACILITATOR_EVM_PRIVATE_KEY');
+  const facilitatorSvmPrivateKey = getNetworkConfigValue('FACILITATOR_SVM_PRIVATE_KEY', true) || process.env.FACILITATOR_SVM_PRIVATE_KEY;
+
+  // Check required EVM variables (always required)
+  const missingEvm: string[] = [];
+  if (!serverEvmAddress) missingEvm.push('SERVER_EVM_ADDRESS');
+  if (!clientEvmPrivateKey) missingEvm.push('CLIENT_EVM_PRIVATE_KEY');
+  if (!facilitatorEvmPrivateKey) missingEvm.push('FACILITATOR_EVM_PRIVATE_KEY');
+
+  if (missingEvm.length > 0) {
+    errorLog('❌ Missing required EVM environment variables:');
+    missingEvm.forEach(varName => errorLog(`   - ${varName}`));
     process.exit(1);
+  }
+
+  // Check required SVM variables (only if user specified --families=svm or didn't filter by family)
+  const testingEvm = !parsedArgs.filters.protocolFamilies || parsedArgs.filters.protocolFamilies.includes('evm');
+  const testingSvm = !parsedArgs.filters.protocolFamilies || parsedArgs.filters.protocolFamilies.includes('svm');
+
+  const missingSvm: string[] = [];
+  if (testingSvm) {
+    if (!serverSvmAddress || serverSvmAddress === 'DummySolanaAddressNotUsedForEVMTests11111111111') missingEvm.push('SERVER_SVM_ADDRESS');
+    if (!clientSvmPrivateKey) missingSvm.push('CLIENT_SVM_PRIVATE_KEY');
+    if (!facilitatorSvmPrivateKey) missingSvm.push('FACILITATOR_SVM_PRIVATE_KEY');
+
+    if (missingSvm.length > 0) {
+      errorLog('❌ Missing required SVM environment variables:');
+      missingSvm.forEach(varName => errorLog(`   - ${varName}`));
+      process.exit(1);
+    }
   }
 
   // Discover all servers, clients, and facilitators (always include legacy)
@@ -419,8 +469,9 @@ async function runTest() {
     const manager = new FacilitatorManager(
       facilitator.proxy,
       port,
-      'eip155:84532',
-      'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1'
+      process.env.EVM_NETWORK || 'eip155:84532',
+      process.env.SVM_NETWORK || 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+      parsedArgs.filters.protocolFamilies
     );
     facilitatorManagers.set(facilitatorName, manager);
   }
@@ -517,8 +568,8 @@ async function runTest() {
       port,
       evmPayTo: serverEvmAddress,
       svmPayTo: serverSvmAddress,
-      evmNetwork: 'eip155:84532',
-      svmNetwork: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+      evmNetwork: process.env.EVM_NETWORK || 'eip155:84532',
+      svmNetwork: process.env.SVM_NETWORK || 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
       facilitatorUrl,
     };
 
