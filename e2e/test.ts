@@ -236,13 +236,34 @@ async function runTest() {
   log('🚀 Starting X402 E2E Test Suite');
   log('===============================');
 
-  // Load configuration from environment
-  const serverEvmAddress = process.env.SERVER_EVM_ADDRESS;
-  const serverSvmAddress = process.env.SERVER_SVM_ADDRESS;
-  const clientEvmPrivateKey = process.env.CLIENT_EVM_PRIVATE_KEY;
-  const clientSvmPrivateKey = process.env.CLIENT_SVM_PRIVATE_KEY;
-  const facilitatorEvmPrivateKey = process.env.FACILITATOR_EVM_PRIVATE_KEY;
-  const facilitatorSvmPrivateKey = process.env.FACILITATOR_SVM_PRIVATE_KEY;
+  // Helper function for network-aware environment variable resolution
+  function getNetworkConfigValue(baseKey: string, optional = false): string | undefined {
+    const networkStr = process.env.EVM_NETWORK;
+    if (!networkStr) {
+      if (optional) return undefined;
+      throw new Error('EVM_NETWORK not set in environment');
+    }
+    const parts = networkStr.split(':');
+    if (parts.length !== 2 || !parts[1]) {
+      throw new Error(`Invalid EVM_NETWORK format: "${networkStr}". Expected format: "eip155:${CHAIN_ID}"`);
+    }
+    const chainId = parts[1];
+    const suffixedKey = `${baseKey}_${chainId}`;
+    const value = process.env[suffixedKey] || process.env[baseKey];
+    if (!value) {
+      if (optional) return undefined;
+      throw new Error(`${baseKey} not configured for network ${networkStr}`);
+    }
+    return value;
+  }
+
+  // Load configuration from environment (with network-aware fallback)
+  const serverEvmAddress = getNetworkConfigValue('SERVER_EVM_ADDRESS');
+  const serverSvmAddress = getNetworkConfigValue('SERVER_SVM_ADDRESS', true) || 'DummySolanaAddressNotUsedForEVMTests11111111111';
+  const clientEvmPrivateKey = getNetworkConfigValue('CLIENT_EVM_PRIVATE_KEY');
+  const clientSvmPrivateKey = getNetworkConfigValue('CLIENT_SVM_PRIVATE_KEY', true) || process.env.CLIENT_SVM_PRIVATE_KEY;
+  const facilitatorEvmPrivateKey = getNetworkConfigValue('FACILITATOR_EVM_PRIVATE_KEY');
+  const facilitatorSvmPrivateKey = getNetworkConfigValue('FACILITATOR_SVM_PRIVATE_KEY', true) || process.env.FACILITATOR_SVM_PRIVATE_KEY;
 
   if (!serverEvmAddress || !serverSvmAddress || !clientEvmPrivateKey || !clientSvmPrivateKey || !facilitatorEvmPrivateKey || !facilitatorSvmPrivateKey) {
     errorLog('❌ Missing required environment variables:');
@@ -419,8 +440,8 @@ async function runTest() {
     const manager = new FacilitatorManager(
       facilitator.proxy,
       port,
-      'eip155:84532',
-      'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1'
+      process.env.EVM_NETWORK || 'eip155:84532',
+      process.env.SVM_NETWORK || 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1'
     );
     facilitatorManagers.set(facilitatorName, manager);
   }
@@ -517,8 +538,8 @@ async function runTest() {
       port,
       evmPayTo: serverEvmAddress,
       svmPayTo: serverSvmAddress,
-      evmNetwork: 'eip155:84532',
-      svmNetwork: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+      evmNetwork: process.env.EVM_NETWORK || 'eip155:84532',
+      svmNetwork: process.env.SVM_NETWORK || 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
       facilitatorUrl,
     };
 
