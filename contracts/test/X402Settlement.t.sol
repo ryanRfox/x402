@@ -385,4 +385,47 @@ contract X402SettlementTest is Test {
         vm.expectRevert(); // OZ 5.x uses InvalidInitialization() error
         settlement.initialize();
     }
+
+    /// @notice Test that zero amount is rejected
+    function testExecutePaymentRevertsOnZeroAmount() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        IX402Settlement.PaymentOrder memory order = createPaymentOrder(NONCE, deadline);
+        order.amount = 0; // Zero amount
+        bytes memory signature = createSignature();
+
+        vm.expectRevert(IX402Settlement.InvalidAmount.selector);
+        settlement.executePayment(order, payer, signature);
+    }
+
+    /// @notice Test that zero token address is rejected
+    function testExecutePaymentRevertsOnZeroToken() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        IX402Settlement.PaymentOrder memory order = createPaymentOrder(NONCE, deadline);
+        order.token = address(0); // Zero token address
+        bytes memory signature = createSignature();
+
+        vm.expectRevert(IX402Settlement.InvalidToken.selector);
+        settlement.executePayment(order, payer, signature);
+    }
+
+    /// @notice Test that zero recipient address is rejected
+    function testExecutePaymentRevertsOnZeroRecipient() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        IX402Settlement.PaymentOrder memory order = createPaymentOrder(NONCE, deadline);
+        order.recipient = address(0); // Zero recipient address
+        bytes memory signature = createSignature();
+
+        vm.expectRevert(IX402Settlement.InvalidRecipient.selector);
+        settlement.executePayment(order, payer, signature);
+    }
+
+    /// @notice Test that zero payer address is rejected
+    function testExecutePaymentRevertsOnZeroPayer() public {
+        uint256 deadline = block.timestamp + 1 hours;
+        IX402Settlement.PaymentOrder memory order = createPaymentOrder(NONCE, deadline);
+        bytes memory signature = createSignature();
+
+        vm.expectRevert(IX402Settlement.InvalidPayer.selector);
+        settlement.executePayment(order, address(0), signature); // Zero payer
+    }
 }

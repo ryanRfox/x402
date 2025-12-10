@@ -23,7 +23,9 @@ This design ensures that the recipient address is cryptographically enforced - a
 - **All Networks**: `0x000000000022D473030F116dDEE9F6B43aC78BA3`
 
 ### Settlement Contract
-- **Base Sepolia**: TBD (deploy using script)
+- **Base Sepolia**: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0` (proxy) - [View on BaseScan](https://sepolia.basescan.org/address/0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0)
+  - Implementation: `0x5FbDB2315678afecb367f032d93F642f64180aa3`
+  - ProxyAdmin: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`
 - **Ethereum Sepolia**: TBD (deploy using script)
 
 ## Installation

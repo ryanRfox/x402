@@ -11,9 +11,24 @@ import {IX402Settlement} from "./interfaces/IX402Settlement.sol";
 /// @notice Settlement contract for x402 payments using Permit2
 /// @dev This contract enables trust-minimized token transfers where the recipient
 ///      is cryptographically enforced via Permit2 witness signatures.
+///
 ///      The contract follows the UniswapX reactor pattern for two-hop transfers:
-///      1. Permit2 transfers tokens from payer to this contract
+///      1. Permit2 transfers tokens from payer to this contract (via witness signature)
 ///      2. Contract immediately transfers tokens to the enforced recipient
+///
+///      This ensures the facilitator cannot redirect funds to a different recipient,
+///      as the recipient address is cryptographically bound to the signature.
+///
+///      IMPORTANT LIMITATIONS:
+///      - Only works with standard ERC20 tokens (18 decimals or less)
+///      - Does NOT work with fee-on-transfer tokens (would lose value)
+///      - Does NOT work with rebasing tokens (would transfer incorrect amounts)
+///      - Does NOT work with tokens with balance hooks or callbacks
+///
+///      UPGRADEABILITY:
+///      - Uses TransparentUpgradeableProxy pattern for upgrades
+///      - ProxyAdmin should be owned by a multisig (not a single EOA)
+///      - All upgrades should go through a timelock (48+ hours)
 contract X402SettlementV1 is IX402Settlement, Initializable {
     using SafeTransferLib for ERC20;
 
@@ -39,6 +54,11 @@ contract X402SettlementV1 is IX402Settlement, Initializable {
     uint256 private constant ENTERED = 2;
     uint256 private _status;
 
+    /// @dev Storage gap for future upgrades (48 slots reserved)
+    /// This ensures that adding new storage variables in future versions
+    /// won't cause storage collisions between proxy and implementation
+    uint256[49] private __gap;
+
     /// @notice Reentrancy guard modifier
     modifier nonReentrant() {
         require(_status != ENTERED, "REENTRANCY");
@@ -59,6 +79,20 @@ contract X402SettlementV1 is IX402Settlement, Initializable {
         address payer,
         bytes calldata signature
     ) external nonReentrant {
+        // Validate inputs
+        if (order.amount == 0) {
+            revert InvalidAmount();
+        }
+        if (order.token == address(0)) {
+            revert InvalidToken();
+        }
+        if (order.recipient == address(0)) {
+            revert InvalidRecipient();
+        }
+        if (payer == address(0)) {
+            revert InvalidPayer();
+        }
+
         // Validate deadline
         if (block.timestamp > order.deadline) {
             revert PaymentExpired(order.deadline);

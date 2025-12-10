@@ -2,7 +2,7 @@
 
 ## Title
 
-Roadmap: Arbitrary Token Support via Permit2 + Settlement Contract
+Roadmap: Arbitrary Token Support via Permit2 + Canonical Settlement Contract
 
 ---
 
@@ -18,33 +18,24 @@ This is a contribution proposal for **Arbitrary Token Support** from the [x402 R
 
 Extend the existing `exact` EVM scheme to support **any ERC-20 token** while preserving x402's **trust-minimization guarantees**.
 
-### Problem Statement
+### Motivation
 
-EIP-3009 (used by USDC) includes the `to` field in the signed message, making it trust-minimized (the facilitator cannot redirect funds). However, Permit2's `permitTransferFrom()` does NOT include the recipient in the signature. The caller (facilitator) controls `transferDetails.to` at execution time.
+EIP-3009 (used by USDC) includes the `to` field in the signed message (Client), making it trust-minimized (the Facilitator cannot redirect funds). However, Permit2's `permitTransferFrom()` does not include the recipient (Seller) in the signature. The caller (Facilitator) controls `transferDetails.to` at execution time.
 
-**This creates a trust gap**: A malicious facilitator could redirect payments to themselves.
+**This creates a trust gap**: A malicious Facilitator could redirect payments to themselves against the Client's intent.
 
 This concern was previously raised in #485 and explored further via EIP-7702 in #576.
 
-### Scope: V2 Only
+### Proposed Solution: Permit2 + Canonical Settlement Contract
 
-This proposal targets **x402 V2 exclusively**. We are not pursuing backwards compatibility with V1 for the following reasons:
-
-1. **V1 has no extensibility mechanism**: The V1 payload types are fixed to EIP-3009's `authorization` structure
-2. **Clean separation of concerns**: V2's scheme registration pattern allows clean addition of new transfer methods
-3. **Simpler implementation**: No need for complex version detection or migration paths
-4. **Active development**: V2 is under active development (`development-v2` branch), making this the appropriate target
-
-### Proposed Solution: Settlement Contract
-
-Following the industry-standard pattern used by **UniswapX**, **Across Protocol**, and **ERC-7683**, we propose defining and deploying a canonical **x402 Settlement Contract** that enforces recipient constraints on-chain.
+Following the industry-standard pattern used by **UniswapX**, **Across Protocol**, and **ERC-7683**, we propose defining and deploying a canonical **x402 Settlement Contract** that enforces **recipient constraints on-chain** using `permitWitnessTransferFrom()` to ensure sender intent.
 
 #### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  TransparentUpgradeableProxy (canonical address per chain)  │
-│    ├── implementation → X402SettlementV1                    │
+│    ├── implementation → X402Settlement                      │
 │    └── admin → x402 Multisig (x402 Foundation)              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -73,23 +64,6 @@ Payer signs: { token, amount, recipient: SELLER, paymentId, nonce, deadline }
 ```
 
 **Why the facilitator cannot cheat**: If they modify the recipient, the order hash changes, Permit2's signature verification fails, and the transaction reverts.
-
-### Trust Model Comparison
-
-| Method | Recipient Enforcement | Trust Model |
-|--------|----------------------|-------------|
-| EIP-3009 | In signature (`to` field) | Trust-minimized |
-| Permit2 (naive) | Facilitator chooses | Facilitator-trusted |
-| **Permit2 + Settlement (proposed)** | **In witness, enforced by contract** | **Trust-minimized** |
-
-### Deliverables
-
-| Component | Deliverable |
-|-----------|-------------|
-| Settlement Contract | `X402Settlement.sol` with OpenZeppelin TransparentUpgradeableProxy |
-| TypeScript SDK | Client, Server, Facilitator support for `assetTransferMethod: "permit2"` |
-| E2E Tests | `/protected-permit2` endpoint with WETH on Base Sepolia |
-| Documentation | Usage guide, security considerations, deployment addresses |
 
 ### Specification: `assetTransferMethod` Field
 
@@ -198,6 +172,23 @@ contract X402Settlement {
 
 Full implementation: ~100 lines, follows UniswapX patterns.
 
+### Trust Model Comparison
+
+| Method | Recipient Enforcement | Trust Model |
+|--------|----------------------|-------------|
+| EIP-3009 | In signature (`to` field) | Trust-minimized |
+| Permit2 (naive) | Facilitator chooses | Facilitator-trusted |
+| **Permit2 + Settlement (proposed)** | **In witness, enforced by contract** | **Trust-minimized** |
+
+### MVP Deliverables
+
+| Component | Deliverable |
+|-----------|-------------|
+| Settlement Contract | `X402Settlement.sol` with OpenZeppelin TransparentUpgradeableProxy |
+| TypeScript SDK | Client, Server, Facilitator support for `assetTransferMethod: "permit2"` |
+| E2E Tests | `/protected-permit2` endpoint with WETH on Base Sepolia |
+| Documentation | Usage guide, security considerations, deployment addresses |
+
 ### Wallet Compatibility
 
 This solution supports **all EVM wallet types**, not just EOAs:
@@ -231,16 +222,18 @@ This means 4337 wallets, Safe multisigs, and future 7702-upgraded EOAs can all u
 4. **CREATE2 deployment**: Same address across all chains
 5. **Audit required**: Before mainnet deployment
 
+### Scope: V2 Only
+
+This proposal targets **x402 V2 exclusively**. We are not pursuing backwards compatibility with V1 for the following reasons:
+
+1. **V1 has no extensibility mechanism**: The V1 payload types are fixed to EIP-3009's `authorization` structure
+2. **Clean separation of concerns**: V2's scheme registration pattern allows clean addition of new transfer methods
+3. **Simpler implementation**: No need for complex version detection or migration paths
+4. **Active development**: V2 is under active development (`development-v2` branch), making this the appropriate target
+
 ### Draft Implementation Branch
 
 `ryanrfox/x402:feature/evm-exact-permit2`
-
-### Questions for Maintainers
-
-1. Should this target `development-v2` or wait for #705 to merge?
-2. Any concerns with the settlement contract governance model (upgradeable proxy + multisig)?
-3. Preferred location for contract code: `/contracts` in this repo or separate repo?
-4. Should we align with ERC-7683 struct definitions for cross-chain compatibility?
 
 ### Alternatives Considered
 
@@ -286,26 +279,11 @@ We investigated several ERC standards for trust-minimized token transfers:
 
 **Conclusion**: Permit2 with witness is the most practical solution for arbitrary ERC-20 support while maintaining trust-minimization.
 
-### Related
+### Questions for Maintainers
 
-- #705 - V2 SDK development
-- #485 - Original Permit2 trust concern (naive approach, rejected)
-- #576 - EIP-7702 alternative approach (under exploration)
-- [UniswapX Reactor Pattern](https://github.com/Uniswap/UniswapX)
-- [Across Protocol SpokePool](https://github.com/across-protocol/contracts)
-- [ERC-7683: Cross Chain Intents](https://eips.ethereum.org/EIPS/eip-7683)
-
----
-
-## Research Documentation
-
-Comprehensive research supporting this proposal is available in the implementation branch:
-
-- `PERMIT2-WITNESS-DATA.md` - Analysis of Permit2 witness mechanism
-- `PERMIT2-ENFORCEMENT-PATTERNS.md` - How UniswapX/Across achieve trust-minimization
-- `PERMIT2-SETTLEMENT-CONTRACT-RESEARCH.md` - Detailed settlement contract design
-- `ERC-TRANSFER-STANDARDS-RESEARCH.md` - Survey of ERC standards for trust-minimized transfers
-
----
+1. Should this target `development-v2` or wait for #705 to merge?
+2. Any concerns with the settlement contract governance model (upgradeable proxy + multisig)?
+3. Preferred location for contract code: `/contracts` in this repo or separate repo?
+4. Should we align with ERC-7683 struct definitions for cross-chain compatibility?
 
 Happy to discuss the approach or adjust based on feedback.

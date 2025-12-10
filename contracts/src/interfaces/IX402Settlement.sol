@@ -43,6 +43,18 @@ interface IX402Settlement {
     /// @param deadline The deadline timestamp that was exceeded
     error PaymentExpired(uint256 deadline);
 
+    /// @notice Error thrown when the transfer amount is zero
+    error InvalidAmount();
+
+    /// @notice Error thrown when the token address is invalid (zero address)
+    error InvalidToken();
+
+    /// @notice Error thrown when the recipient address is invalid (zero address)
+    error InvalidRecipient();
+
+    /// @notice Error thrown when the payer address is invalid (zero address)
+    error InvalidPayer();
+
     /// @notice Error thrown when signature verification fails
     error InvalidSignature();
 
