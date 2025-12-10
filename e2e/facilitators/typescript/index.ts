@@ -38,6 +38,8 @@ dotenv.config();
 
 // Configuration
 const PORT = process.env.PORT || "4022";
+const EVM_NETWORK = process.env.EVM_NETWORK || "eip155:84532";
+const EVM_RPC_URL = process.env.EVM_RPC_URL || "https://sepolia.base.org";
 
 // Validate required environment variables
 if (!process.env.EVM_PRIVATE_KEY) {
@@ -60,10 +62,11 @@ const svmAccount = await createKeyPairSignerFromBytes(base58.decode(process.env.
 console.info(`EVM Facilitator account: ${evmAccount.address}`);
 
 // Create a Viem client with both wallet and public capabilities
+// Note: We use a custom chain config with the provided RPC URL
 const viemClient = createWalletClient({
   account: evmAccount,
-  chain: baseSepolia,
-  transport: http(),
+  chain: baseSepolia, // Using baseSepolia as chain definition, but overriding transport RPC
+  transport: http(EVM_RPC_URL),
 }).extend(publicActions);
 
 // Initialize the x402 Facilitator with EVM and SVM support
@@ -123,7 +126,7 @@ const facilitator = new x402Facilitator();
 // Register EVM and SVM schemes using the new register helpers
 registerExactEvmScheme(facilitator, {
   signer: evmSigner,
-  networks: "eip155:84532"  // Base Sepolia
+  networks: EVM_NETWORK
 });
 registerExactSvmScheme(facilitator, {
   signer: svmSigner,
@@ -311,7 +314,7 @@ app.get("/discovery/resources", (req, res) => {
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
-    network: "eip155:84532",
+    network: EVM_NETWORK,
     facilitator: "typescript",
     version: "2.0.0",
     extensions: [BAZAAR],
@@ -340,7 +343,7 @@ app.listen(parseInt(PORT), () => {
 ║           x402 TypeScript Facilitator                  ║
 ╠════════════════════════════════════════════════════════╣
 ║  Server:     http://localhost:${PORT}                  ║
-║  Network:    eip155:84532                              ║
+║  Network:    ${EVM_NETWORK}                              ║
 ║  Address:    ${evmAccount.address}                        ║
 ║  Extensions: bazaar                                    ║
 ║                                                        ║

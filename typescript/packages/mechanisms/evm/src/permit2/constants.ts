@@ -27,6 +27,7 @@ const DEFAULT_SETTLEMENT_ADDRESSES: Record<string, `0x${string}`> = {
   // Testnet chains
   "eip155:11155111": "0x0000000000000000000000000000000000000000", // Ethereum Sepolia (TBD)
   "eip155:84532": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0", // Base Sepolia (with input validation)
+  "eip155:1223953": "0x740C8fb1853F9ab61E405A30F3E9c9f41F4e65C6", // Radius Testnet (with input validation)
 };
 
 /**
