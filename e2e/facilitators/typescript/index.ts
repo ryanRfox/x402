@@ -67,13 +67,8 @@ const FACILITATOR_SVM_PRIVATE_KEY = getNetworkConfigValue('FACILITATOR_SVM_PRIVA
 const evmAccount = privateKeyToAccount(FACILITATOR_EVM_PRIVATE_KEY as `0x${string}`);
 console.info(`EVM Facilitator account: ${evmAccount.address}`);
 
-// Determine which protocol families should be registered (needed early for account initialization)
-const protocolFamiliesStr = process.env.PROTOCOL_FAMILIES || '';
-const protocolFamilies = protocolFamiliesStr ? protocolFamiliesStr.split(',').map(f => f.trim()) : [];
-const shouldRegisterSvm = !protocolFamilies.length || protocolFamilies.includes('svm');
-
-// Initialize the SVM account from private key (only if SVM will be registered)
-const svmAccount = shouldRegisterSvm && FACILITATOR_SVM_PRIVATE_KEY
+// Initialize the SVM account from private key
+const svmAccount = FACILITATOR_SVM_PRIVATE_KEY
   ? await createKeyPairSignerFromBytes(base58.decode(FACILITATOR_SVM_PRIVATE_KEY))
   : null;
 if (svmAccount) {
@@ -142,23 +137,15 @@ function createPaymentHash(paymentPayload: PaymentPayload): string {
 
 const facilitator = new x402Facilitator();
 
-// Determine whether to register EVM (always register if no filter or 'evm' is in the filter)
-const shouldRegisterEvm = !protocolFamilies.length || protocolFamilies.includes('evm');
-
 // Register EVM and SVM schemes using the new register helpers
-if (shouldRegisterEvm) {
-  registerExactEvmScheme(facilitator, {
-    signer: evmSigner,
-    networks: EVM_NETWORK
-  });
-}
-
-if (shouldRegisterSvm) {
-  registerExactSvmScheme(facilitator, {
-    signer: svmSigner,
-    networks: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"  // Devnet
-  });
-}
+registerExactEvmScheme(facilitator, {
+  signer: evmSigner,
+  networks: EVM_NETWORK
+});
+registerExactSvmScheme(facilitator, {
+  signer: svmSigner,
+  networks: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"  // Devnet
+});
 
 facilitator.registerExtension(BAZAAR)
   // Lifecycle hooks for payment tracking and discovery
