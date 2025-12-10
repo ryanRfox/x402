@@ -265,10 +265,33 @@ async function runTest() {
   const facilitatorEvmPrivateKey = getNetworkConfigValue('FACILITATOR_EVM_PRIVATE_KEY');
   const facilitatorSvmPrivateKey = getNetworkConfigValue('FACILITATOR_SVM_PRIVATE_KEY', true) || process.env.FACILITATOR_SVM_PRIVATE_KEY;
 
-  if (!serverEvmAddress || !serverSvmAddress || !clientEvmPrivateKey || !clientSvmPrivateKey || !facilitatorEvmPrivateKey || !facilitatorSvmPrivateKey) {
-    errorLog('❌ Missing required environment variables:');
-    errorLog('   SERVER_EVM_ADDRESS, SERVER_SVM_ADDRESS, CLIENT_EVM_PRIVATE_KEY, CLIENT_SVM_PRIVATE_KEY, FACILITATOR_EVM_PRIVATE_KEY, and FACILITATOR_SVM_PRIVATE_KEY must be set');
+  // Check required EVM variables (always required)
+  const missingEvm: string[] = [];
+  if (!serverEvmAddress) missingEvm.push('SERVER_EVM_ADDRESS');
+  if (!clientEvmPrivateKey) missingEvm.push('CLIENT_EVM_PRIVATE_KEY');
+  if (!facilitatorEvmPrivateKey) missingEvm.push('FACILITATOR_EVM_PRIVATE_KEY');
+
+  if (missingEvm.length > 0) {
+    errorLog('❌ Missing required EVM environment variables:');
+    missingEvm.forEach(varName => errorLog(`   - ${varName}`));
     process.exit(1);
+  }
+
+  // Check required SVM variables (only if user specified --families=svm or didn't filter by family)
+  const testingEvm = !parsedArgs.filters.protocolFamilies || parsedArgs.filters.protocolFamilies.includes('evm');
+  const testingSvm = !parsedArgs.filters.protocolFamilies || parsedArgs.filters.protocolFamilies.includes('svm');
+
+  const missingSvm: string[] = [];
+  if (testingSvm) {
+    if (!serverSvmAddress || serverSvmAddress === 'DummySolanaAddressNotUsedForEVMTests11111111111') missingEvm.push('SERVER_SVM_ADDRESS');
+    if (!clientSvmPrivateKey) missingSvm.push('CLIENT_SVM_PRIVATE_KEY');
+    if (!facilitatorSvmPrivateKey) missingSvm.push('FACILITATOR_SVM_PRIVATE_KEY');
+
+    if (missingSvm.length > 0) {
+      errorLog('❌ Missing required SVM environment variables:');
+      missingSvm.forEach(varName => errorLog(`   - ${varName}`));
+      process.exit(1);
+    }
   }
 
   // Discover all servers, clients, and facilitators (always include legacy)
