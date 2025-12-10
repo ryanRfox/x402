@@ -5,6 +5,7 @@ import { registerExactEvmScheme } from "@x402/evm/exact/server";
 import { registerExactSvmScheme } from "@x402/svm/exact/server";
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import dotenv from "dotenv";
+import { getConfig, logConfigSummary } from "../../src/config.js";
 
 dotenv.config();
 
@@ -15,31 +16,25 @@ dotenv.config();
  * with an Express application for end-to-end testing.
  */
 
+// Load network-aware configuration
+const cfg = getConfig();
+logConfigSummary();
+
 const PORT = process.env.PORT || "4021";
-const EVM_NETWORK = (process.env.EVM_NETWORK || "eip155:84532") as `${string}:${string}`;
+const EVM_NETWORK = cfg.network as `${string}:${string}`;
 const SVM_NETWORK = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" as `${string}:${string}`;
-const EVM_PAYEE_ADDRESS = process.env.EVM_PAYEE_ADDRESS || process.env.SERVER_EVM_ADDRESS as `0x${string}`;
-const SVM_PAYEE_ADDRESS = process.env.SVM_PAYEE_ADDRESS || process.env.SERVER_SVM_ADDRESS as string;
+const EVM_PAYEE_ADDRESS = cfg.serverEVMAddress as `0x${string}`;
+const SVM_PAYEE_ADDRESS = cfg.serverSVMAddress || "DummySolanaAddressNotUsedForEVMTests11111111111";
 
 // Permit2 token configuration (arbitrary ERC20 token)
-const PERMIT2_TOKEN_ADDRESS = (process.env.PERMIT2_TOKEN_ADDRESS || "0x4200000000000000000000000000000000000006") as `0x${string}`;
-const PERMIT2_TOKEN_DECIMALS = parseInt(process.env.PERMIT2_TOKEN_DECIMALS || "18", 10);
+const PERMIT2_TOKEN_ADDRESS = cfg.permit2TokenAddress as `0x${string}`;
+const PERMIT2_TOKEN_DECIMALS = cfg.permit2TokenDecimals;
 
 // Calculate payment amount: 0.001 token in smallest units
 // Example: 0.001 WETH (18 decimals) = 1000000000000000
 // Example: 0.001 USDC (6 decimals) = 1000
 const PERMIT2_PAYMENT_AMOUNT = String(Math.pow(10, PERMIT2_TOKEN_DECIMALS) * 0.001);
 const facilitatorUrl = process.env.FACILITATOR_URL;
-
-if (!EVM_PAYEE_ADDRESS) {
-  console.error("❌ EVM_PAYEE_ADDRESS environment variable is required");
-  process.exit(1);
-}
-
-if (!SVM_PAYEE_ADDRESS) {
-  console.error("❌ SVM_PAYEE_ADDRESS environment variable is required");
-  process.exit(1);
-}
 
 if (!facilitatorUrl) {
   console.error("❌ FACILITATOR_URL environment variable is required");
@@ -62,7 +57,6 @@ registerExactSvmScheme(server);
 // Register Bazaar discovery extension
 server.registerExtension(bazaarResourceServerExtension);
 
-console.log(`Facilitator account: ${process.env.EVM_PRIVATE_KEY ? process.env.EVM_PRIVATE_KEY.substring(0, 10) + '...' : 'not configured'}`);
 console.log(`Using remote facilitator at: ${facilitatorUrl}`);
 
 /**
