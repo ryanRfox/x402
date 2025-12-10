@@ -16,13 +16,19 @@ dotenv.config();
  */
 
 const PORT = process.env.PORT || "4021";
-const EVM_NETWORK = "eip155:84532" as const;
+const EVM_NETWORK = (process.env.EVM_NETWORK || "eip155:84532") as `${string}:${string}`;
 const SVM_NETWORK = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" as `${string}:${string}`;
-const EVM_PAYEE_ADDRESS = process.env.EVM_PAYEE_ADDRESS as `0x${string}`;
-const SVM_PAYEE_ADDRESS = process.env.SVM_PAYEE_ADDRESS as string;
+const EVM_PAYEE_ADDRESS = process.env.EVM_PAYEE_ADDRESS || process.env.SERVER_EVM_ADDRESS as `0x${string}`;
+const SVM_PAYEE_ADDRESS = process.env.SVM_PAYEE_ADDRESS || process.env.SERVER_SVM_ADDRESS as string;
 
-// WETH address on Base Sepolia (for Permit2 testing)
-const WETH_ADDRESS_BASE_SEPOLIA = "0x4200000000000000000000000000000000000006" as `0x${string}`;
+// Permit2 token configuration (arbitrary ERC20 token)
+const PERMIT2_TOKEN_ADDRESS = (process.env.PERMIT2_TOKEN_ADDRESS || "0x4200000000000000000000000000000000000006") as `0x${string}`;
+const PERMIT2_TOKEN_DECIMALS = parseInt(process.env.PERMIT2_TOKEN_DECIMALS || "18", 10);
+
+// Calculate payment amount: 0.001 token in smallest units
+// Example: 0.001 WETH (18 decimals) = 1000000000000000
+// Example: 0.001 USDC (6 decimals) = 1000
+const PERMIT2_PAYMENT_AMOUNT = String(Math.pow(10, PERMIT2_TOKEN_DECIMALS) * 0.001);
 const facilitatorUrl = process.env.FACILITATOR_URL;
 
 if (!EVM_PAYEE_ADDRESS) {
@@ -119,17 +125,16 @@ app.use(
           }),
         },
       },
-      // Permit2 Settlement endpoint - WETH only (NOT USDC)
+      // Permit2 Settlement endpoint - arbitrary ERC20 token
       // Uses trust-minimized settlement contract pattern
-      // The client prefers USDC, so offering both would cause WETH/Permit2 to be ignored
       "GET /protected-permit2": {
         accepts: {
           payTo: EVM_PAYEE_ADDRESS,
           scheme: "exact",
           network: EVM_NETWORK,
           price: {
-            amount: "1000000000000000", // 0.001 WETH (18 decimals)
-            asset: WETH_ADDRESS_BASE_SEPOLIA,
+            amount: PERMIT2_PAYMENT_AMOUNT, // 0.001 token (amount adjusted for decimals)
+            asset: PERMIT2_TOKEN_ADDRESS,
             extra: {
               assetTransferMethod: "permit2",
             },
@@ -241,7 +246,8 @@ app.listen(parseInt(PORT), () => {
 ║  Endpoints:                                            ║
 ║  • GET  /protected       ($0.001 USDC via EIP-3009)   ║
 ║  • GET  /protected-svm   ($0.001 USDC via EIP-3009)   ║
-║  • GET  /protected-permit2 (0.001 WETH via Settlement)║
+║  • GET  /protected-permit2 (0.001 token via Permit2)  ║
+║    Token: ${PERMIT2_TOKEN_ADDRESS.substring(0, 10)}... (${PERMIT2_TOKEN_DECIMALS} decimals)     ║
 ║  • GET  /health          (no payment required)        ║
 ║  • POST /close           (shutdown server)            ║
 ╚════════════════════════════════════════════════════════╝
