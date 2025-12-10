@@ -32,27 +32,48 @@ import express from "express";
 import { createWalletClient, http, publicActions } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
-import { getConfig, logConfigSummary } from "../../src/config.js";
 import { BazaarCatalog } from "./bazaar.js";
 
 dotenv.config();
 
-// Load network-aware configuration
-const cfg = getConfig();
-logConfigSummary();
+// Configuration with network-aware resolution
+function getNetworkConfigValue(baseKey: string, optional = false): string | undefined {
+  const networkStr = process.env.EVM_NETWORK;
+  if (!networkStr) {
+    if (optional) return undefined;
+    throw new Error('EVM_NETWORK not set in environment');
+  }
+  const parts = networkStr.split(':');
+  if (parts.length !== 2 || !parts[1]) {
+    throw new Error(`Invalid EVM_NETWORK format: "${networkStr}". Expected format: "eip155:${CHAIN_ID}"`);
+  }
+  const chainId = parts[1];
+  const suffixedKey = `${baseKey}_${chainId}`;
+  const value = process.env[suffixedKey] || process.env[baseKey];
+  if (!value) {
+    if (optional) return undefined;
+    throw new Error(`${baseKey} not configured for network ${networkStr}`);
+  }
+  return value;
+}
 
-// Configuration
 const PORT = process.env.PORT || "4022";
-const EVM_NETWORK = cfg.network;
-const EVM_RPC_URL = cfg.evmRpcUrl;
+const EVM_NETWORK = process.env.EVM_NETWORK || "eip155:84532";
+const EVM_RPC_URL = getNetworkConfigValue('EVM_RPC_URL');
+const FACILITATOR_EVM_PRIVATE_KEY = getNetworkConfigValue('FACILITATOR_EVM_PRIVATE_KEY');
+const FACILITATOR_SVM_PRIVATE_KEY = getNetworkConfigValue('FACILITATOR_SVM_PRIVATE_KEY', true);
 
 // Initialize the EVM account from private key
-const evmAccount = privateKeyToAccount(cfg.facilitatorEVMPrivateKey as `0x${string}`);
+const evmAccount = privateKeyToAccount(FACILITATOR_EVM_PRIVATE_KEY as `0x${string}`);
 console.info(`EVM Facilitator account: ${evmAccount.address}`);
 
 // Initialize the SVM account from private key
-const svmAccount = await createKeyPairSignerFromBytes(base58.decode(cfg.facilitatorSVMPrivateKey));
-console.info(`SVM Facilitator account: ${svmAccount.publicKey}`);
+const svmAccount = FACILITATOR_SVM_PRIVATE_KEY
+  ? await createKeyPairSignerFromBytes(base58.decode(FACILITATOR_SVM_PRIVATE_KEY))
+  : null;
+if (svmAccount) {
+  console.info(`SVM Facilitator account: ${svmAccount.publicKey}`);
+}
 
 // Create a Viem client with both wallet and public capabilities
 // Note: We use a custom chain config with the provided RPC URL

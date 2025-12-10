@@ -5,7 +5,6 @@ import { registerExactEvmScheme } from "@x402/evm/exact/server";
 import { registerExactSvmScheme } from "@x402/svm/exact/server";
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import dotenv from "dotenv";
-import { getConfig, logConfigSummary } from "../../src/config.js";
 
 dotenv.config();
 
@@ -16,19 +15,36 @@ dotenv.config();
  * with an Express application for end-to-end testing.
  */
 
-// Load network-aware configuration
-const cfg = getConfig();
-logConfigSummary();
+// Configuration with network-aware resolution
+function getNetworkConfigValue(baseKey: string, optional = false): string | undefined {
+  const networkStr = process.env.EVM_NETWORK;
+  if (!networkStr) {
+    if (optional) return undefined;
+    throw new Error('EVM_NETWORK not set in environment');
+  }
+  const parts = networkStr.split(':');
+  if (parts.length !== 2 || !parts[1]) {
+    throw new Error(`Invalid EVM_NETWORK format: "${networkStr}". Expected format: "eip155:${CHAIN_ID}"`);
+  }
+  const chainId = parts[1];
+  const suffixedKey = `${baseKey}_${chainId}`;
+  const value = process.env[suffixedKey] || process.env[baseKey];
+  if (!value) {
+    if (optional) return undefined;
+    throw new Error(`${baseKey} not configured for network ${networkStr}`);
+  }
+  return value;
+}
 
 const PORT = process.env.PORT || "4021";
-const EVM_NETWORK = cfg.network as `${string}:${string}`;
+const EVM_NETWORK = (process.env.EVM_NETWORK || "eip155:84532") as `${string}:${string}`;
 const SVM_NETWORK = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1" as `${string}:${string}`;
-const EVM_PAYEE_ADDRESS = cfg.serverEVMAddress as `0x${string}`;
-const SVM_PAYEE_ADDRESS = cfg.serverSVMAddress || "DummySolanaAddressNotUsedForEVMTests11111111111";
+const EVM_PAYEE_ADDRESS = getNetworkConfigValue('SERVER_EVM_ADDRESS') as `0x${string}`;
+const SVM_PAYEE_ADDRESS = getNetworkConfigValue('SERVER_SVM_ADDRESS', true) || "DummySolanaAddressNotUsedForEVMTests11111111111";
 
 // Permit2 token configuration (arbitrary ERC20 token)
-const PERMIT2_TOKEN_ADDRESS = cfg.permit2TokenAddress as `0x${string}`;
-const PERMIT2_TOKEN_DECIMALS = cfg.permit2TokenDecimals;
+const PERMIT2_TOKEN_ADDRESS = getNetworkConfigValue('PERMIT2_TOKEN_ADDRESS') as `0x${string}`;
+const PERMIT2_TOKEN_DECIMALS = parseInt(getNetworkConfigValue('PERMIT2_TOKEN_DECIMALS'), 10);
 
 // Calculate payment amount: 0.001 token in smallest units
 // Example: 0.001 WETH (18 decimals) = 1000000000000000
