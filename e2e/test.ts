@@ -23,6 +23,11 @@ config();
 // Parse command line arguments
 const parsedArgs = parseArgs();
 
+// Set PROTOCOL_FAMILIES environment variable for child processes
+if (parsedArgs.filters.protocolFamilies && parsedArgs.filters.protocolFamilies.length > 0) {
+  process.env.PROTOCOL_FAMILIES = parsedArgs.filters.protocolFamilies.join(',');
+}
+
 interface Facilitator {
   start: (config: { port: number; evmPrivateKey: string; svmPrivateKey: string; evmNetwork: string; svmNetwork: string; }) => Promise<void>;
   health: () => Promise<{ success: boolean }>;
@@ -37,15 +42,15 @@ class FacilitatorManager {
   private readyPromise: Promise<string | null>;
   private url: string | null = null;
 
-  constructor(facilitator: Facilitator, port: number, evmNetwork: string, svmNetwork: string) {
+  constructor(facilitator: Facilitator, port: number, evmNetwork: string, svmNetwork: string, protocolFamilies?: string[]) {
     this.facilitator = facilitator;
     this.port = port;
 
     // Start facilitator and health checks asynchronously
-    this.readyPromise = this.startAndWaitForHealth(evmNetwork, svmNetwork);
+    this.readyPromise = this.startAndWaitForHealth(evmNetwork, svmNetwork, protocolFamilies);
   }
 
-  private async startAndWaitForHealth(evmNetwork: string, svmNetwork: string): Promise<string | null> {
+  private async startAndWaitForHealth(evmNetwork: string, svmNetwork: string, protocolFamilies?: string[]): Promise<string | null> {
     verboseLog(`  🏛️ Starting facilitator on port ${this.port}...`);
 
     await this.facilitator.start({
@@ -54,6 +59,7 @@ class FacilitatorManager {
       svmPrivateKey: process.env.FACILITATOR_SVM_PRIVATE_KEY,
       evmNetwork,
       svmNetwork,
+      protocolFamilies,
     });
 
     // Wait for facilitator to be healthy
@@ -464,7 +470,8 @@ async function runTest() {
       facilitator.proxy,
       port,
       process.env.EVM_NETWORK || 'eip155:84532',
-      process.env.SVM_NETWORK || 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1'
+      process.env.SVM_NETWORK || 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+      parsedArgs.filters.protocolFamilies
     );
     facilitatorManagers.set(facilitatorName, manager);
   }

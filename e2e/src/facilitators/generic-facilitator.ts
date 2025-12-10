@@ -54,6 +54,7 @@ export interface FacilitatorConfig {
   svmPrivateKey?: string;
   evmNetwork?: string;
   svmNetwork?: string;
+  protocolFamilies?: string[];
 }
 
 export interface FacilitatorProxy {
@@ -115,6 +116,7 @@ export class GenericFacilitatorProxy extends BaseProxy implements FacilitatorPro
       EVM_NETWORK: config.evmNetwork || 'eip155:84532',
       SVM_NETWORK: config.svmNetwork || 'solana:devnet',
       EVM_RPC_URL: process.env.BASE_SEPOLIA_RPC_URL || process.env.EVM_RPC_URL || '',
+      PROTOCOL_FAMILIES: config.protocolFamilies ? config.protocolFamilies.join(',') : '',
     };
 
     // Pass through any additional environment variables required by the facilitator

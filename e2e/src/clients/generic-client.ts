@@ -26,6 +26,11 @@ export class GenericClientProxy extends BaseProxy implements ClientProxy {
         ENDPOINT_PATH: config.endpointPath,
       };
 
+      // Pass through PROTOCOL_FAMILIES if set (for EVM-only or SVM-only testing)
+      if (process.env.PROTOCOL_FAMILIES) {
+        env.PROTOCOL_FAMILIES = process.env.PROTOCOL_FAMILIES;
+      }
+
       // Pass through X402_SETTLEMENT_ADDRESS environment variables for Permit2
       const settlementVars = Object.entries(process.env).filter(([key]) =>
         key === 'X402_SETTLEMENT_ADDRESS' || key.startsWith('X402_SETTLEMENT_ADDRESS_')
