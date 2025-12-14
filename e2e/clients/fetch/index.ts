@@ -17,12 +17,27 @@ import { x402Client, x402HTTPClient } from "@x402/core/client";
   const endpointPath = process.env.ENDPOINT_PATH as string;
   const url = `${baseURL}${endpointPath}`;
   const evmAccount = privateKeyToAccount(process.env.EVM_PRIVATE_KEY as `0x${string}`);
-  const svmSigner = await createKeyPairSignerFromBytes(base58.decode(process.env.SVM_PRIVATE_KEY as string));
+
+  // Determine which protocol families should be registered
+  const protocolFamiliesStr = process.env.PROTOCOL_FAMILIES || '';
+  const protocolFamilies = protocolFamiliesStr ? protocolFamiliesStr.split(',').map(f => f.trim()) : [];
+  const shouldRegisterEvm = !protocolFamilies.length || protocolFamilies.includes('evm');
+  const shouldRegisterSvm = !protocolFamilies.length || protocolFamilies.includes('svm');
+
+  // Initialize SVM signer only if needed
+  let svmSigner;
+  if (shouldRegisterSvm && process.env.SVM_PRIVATE_KEY) {
+    svmSigner = await createKeyPairSignerFromBytes(base58.decode(process.env.SVM_PRIVATE_KEY as string));
+  }
 
   // Create client and register EVM and SVM schemes using the new register helpers
   const client = new x402Client();
-  registerExactEvmScheme(client, { signer: evmAccount });
-  registerExactSvmScheme(client, { signer: svmSigner });
+  if (shouldRegisterEvm) {
+    registerExactEvmScheme(client, { signer: evmAccount });
+  }
+  if (shouldRegisterSvm && svmSigner) {
+    registerExactSvmScheme(client, { signer: svmSigner });
+  }
 
   const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 

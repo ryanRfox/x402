@@ -36,30 +36,49 @@ import { BazaarCatalog } from "./bazaar.js";
 
 dotenv.config();
 
-// Configuration
+// Configuration with network-aware resolution
+function getNetworkConfigValue(baseKey: string, optional = false): string | undefined {
+  const networkStr = process.env.EVM_NETWORK;
+  if (!networkStr) {
+    if (optional) return undefined;
+    throw new Error('EVM_NETWORK not set in environment');
+  }
+  const parts = networkStr.split(':');
+  if (parts.length !== 2 || !parts[1]) {
+    throw new Error(`Invalid EVM_NETWORK format: "${networkStr}". Expected format: "eip155:${CHAIN_ID}"`);
+  }
+  const chainId = parts[1];
+  const suffixedKey = `${baseKey}_${chainId}`;
+  const value = process.env[suffixedKey] || process.env[baseKey];
+  if (!value) {
+    if (optional) return undefined;
+    throw new Error(`${baseKey} not configured for network ${networkStr}`);
+  }
+  return value;
+}
+
 const PORT = process.env.PORT || "4022";
 const EVM_NETWORK = process.env.EVM_NETWORK || "eip155:84532";
-const EVM_RPC_URL = process.env.EVM_RPC_URL || "https://sepolia.base.org";
-
-// Validate required environment variables
-if (!process.env.EVM_PRIVATE_KEY) {
-  console.error("❌ EVM_PRIVATE_KEY environment variable is required");
-  process.exit(1);
-}
-
-if (!process.env.SVM_PRIVATE_KEY) {
-  console.error("❌ SVM_PRIVATE_KEY environment variable is required");
-  process.exit(1);
-}
+const EVM_RPC_URL = getNetworkConfigValue('EVM_RPC_URL');
+const FACILITATOR_EVM_PRIVATE_KEY = getNetworkConfigValue('FACILITATOR_EVM_PRIVATE_KEY');
+const FACILITATOR_SVM_PRIVATE_KEY = getNetworkConfigValue('FACILITATOR_SVM_PRIVATE_KEY', true);
 
 // Initialize the EVM account from private key
-const evmAccount = privateKeyToAccount(process.env.EVM_PRIVATE_KEY as `0x${string}`);
+const evmAccount = privateKeyToAccount(FACILITATOR_EVM_PRIVATE_KEY as `0x${string}`);
 console.info(`EVM Facilitator account: ${evmAccount.address}`);
 
+// Determine which protocol families should be registered (needed early for account initialization)
+const protocolFamiliesStr = process.env.PROTOCOL_FAMILIES || '';
+const protocolFamilies = protocolFamiliesStr ? protocolFamiliesStr.split(',').map(f => f.trim()) : [];
+const shouldRegisterSvm = !protocolFamilies.length || protocolFamilies.includes('svm');
 
-// Initialize the EVM account from private key
-const svmAccount = await createKeyPairSignerFromBytes(base58.decode(process.env.SVM_PRIVATE_KEY as string));
-console.info(`EVM Facilitator account: ${evmAccount.address}`);
+// Initialize the SVM account from private key (only if SVM will be registered)
+const svmAccount = shouldRegisterSvm && FACILITATOR_SVM_PRIVATE_KEY
+  ? await createKeyPairSignerFromBytes(base58.decode(FACILITATOR_SVM_PRIVATE_KEY))
+  : null;
+if (svmAccount) {
+  console.info(`SVM Facilitator account: ${svmAccount.publicKey}`);
+}
 
 // Create a Viem client with both wallet and public capabilities
 // Note: We use a custom chain config with the provided RPC URL
@@ -123,15 +142,23 @@ function createPaymentHash(paymentPayload: PaymentPayload): string {
 
 const facilitator = new x402Facilitator();
 
+// Determine whether to register EVM (always register if no filter or 'evm' is in the filter)
+const shouldRegisterEvm = !protocolFamilies.length || protocolFamilies.includes('evm');
+
 // Register EVM and SVM schemes using the new register helpers
-registerExactEvmScheme(facilitator, {
-  signer: evmSigner,
-  networks: EVM_NETWORK
-});
-registerExactSvmScheme(facilitator, {
-  signer: svmSigner,
-  networks: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"  // Devnet
-});
+if (shouldRegisterEvm) {
+  registerExactEvmScheme(facilitator, {
+    signer: evmSigner,
+    networks: EVM_NETWORK
+  });
+}
+
+if (shouldRegisterSvm) {
+  registerExactSvmScheme(facilitator, {
+    signer: svmSigner,
+    networks: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"  // Devnet
+  });
+}
 
 facilitator.registerExtension(BAZAAR)
   // Lifecycle hooks for payment tracking and discovery

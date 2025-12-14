@@ -108,27 +108,19 @@ func main() {
 
 	routes := x402http.RoutesConfig{
 		"GET /protected": {
-			Accepts: x402http.PaymentOptions{
-				{
-					Scheme:  "exact",
-					PayTo:   evmPayeeAddress,
-					Price:   "$0.001",
-					Network: evmNetwork,
-				},
-			},
+			Scheme:  "exact",
+			PayTo:   evmPayeeAddress,
+			Price:   "$0.001",
+			Network: evmNetwork,
 			Extensions: map[string]interface{}{
 				types.BAZAAR: discoveryExtension,
 			},
 		},
 		"GET /protected-svm": {
-			Accepts: x402http.PaymentOptions{
-				{
-					Scheme:  "exact",
-					PayTo:   svmPayeeAddress,
-					Price:   "$0.001",
-					Network: svmNetwork,
-				},
-			},
+			Scheme:  "exact",
+			PayTo:   svmPayeeAddress,
+			Price:   "$0.001",
+			Network: svmNetwork,
 			Extensions: map[string]interface{}{
 				types.BAZAAR: discoveryExtension,
 			},
@@ -143,7 +135,7 @@ func main() {
 			{Network: evmNetwork, Server: evm.NewExactEvmScheme()},
 			{Network: svmNetwork, Server: svm.NewExactSvmScheme()},
 		},
-		SyncFacilitatorOnStart: true,
+		Initialize: true,
 		Timeout:    30 * time.Second,
 		ErrorHandler: func(c *ginfw.Context, err error) {
 			// Log detailed error information for debugging

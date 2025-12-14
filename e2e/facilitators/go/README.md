@@ -19,7 +19,7 @@ facilitator := x402.Newx402Facilitator()
 			verifiedPayments[paymentHash] = ctx.Timestamp.Unix()
 			
 			// Catalog discovered resources
-			discovered, _ := bazaar.ExtractDiscoveredResourceFromPaymentPayload(ctx.PayloadBytes, ctx.RequirementsBytes, true)
+			discovered, _ := bazaar.ExtractDiscoveryInfo(ctx.PaymentPayload, ctx.PaymentRequirements, true)
 			if discovered != nil {
 				bazaarCatalog.CatalogResource(discovered)
 			}
