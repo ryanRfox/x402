@@ -10,7 +10,11 @@ __pycache__/
 **/.DS_Store
 e2e/facilitators/external-proxies/*
 !e2e/facilitators/external-proxies/README.md
+<<<<<<< HEAD
 typescript/package-lock.json
 # Gas Town infrastructure
 .beads/
 AGENTS.md
+=======
+typescript/package-lock.json.beads/
+>>>>>>> ee4d12e9 (Add .beads to gitignore)
