@@ -1,4 +1,5 @@
 .env
+.beads
 node_modules/
 dist/
 .turbo/
