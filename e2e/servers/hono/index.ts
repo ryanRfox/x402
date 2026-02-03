@@ -69,6 +69,55 @@ app.use(
   "*",
   paymentMiddleware(
     {
+      // Multi-method endpoint - accepts multiple payment methods in preference order
+      "GET /protected": {
+        accepts: [
+          // 1. Base USDC EIP-3009 (highest preference)
+          {
+            payTo: EVM_PAYEE_ADDRESS,
+            scheme: "exact",
+            price: "$0.001",
+            network: EVM_NETWORK,
+          },
+          // 2. Base WETH Permit2
+          {
+            payTo: EVM_PAYEE_ADDRESS,
+            scheme: "exact",
+            network: EVM_NETWORK,
+            price: {
+              amount: "1000",
+              asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia USDC
+              extra: {
+                assetTransferMethod: "permit2",
+              },
+            },
+          },
+          // 3. Solana USDC (lowest preference)
+          {
+            payTo: SVM_PAYEE_ADDRESS,
+            scheme: "exact",
+            price: "$0.001",
+            network: SVM_NETWORK,
+          },
+        ],
+        extensions: {
+          ...declareDiscoveryExtension({
+            output: {
+              example: {
+                message: "Multi-method endpoint accessed successfully",
+                timestamp: "2024-01-01T00:00:00Z",
+              },
+              schema: {
+                properties: {
+                  message: { type: "string" },
+                  timestamp: { type: "string" },
+                },
+                required: ["message", "timestamp"],
+              },
+            },
+          }),
+        },
+      },
       // Route-specific payment configuration
       "GET /protected-eip3009": {
         accepts: {
@@ -126,7 +175,23 @@ app.use(
 );
 
 /**
- * Protected endpoint - requires payment to access
+ * Multi-method protected endpoint - accepts multiple payment methods
+ *
+ * This endpoint demonstrates a resource protected by x402 payment middleware
+ * that accepts multiple payment methods in preference order:
+ * 1. Base USDC EIP-3009
+ * 2. Base WETH Permit2
+ * 3. Solana USDC
+ */
+app.get("/protected", (c) => {
+  return c.json({
+    message: "Multi-method endpoint accessed successfully",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * Protected EIP-3009 endpoint - requires payment to access
  *
  * This endpoint demonstrates a resource protected by x402 payment middleware.
  * Clients must provide a valid payment signature to access this endpoint.
@@ -198,6 +263,7 @@ console.log(`
 ║  SVM Payee:      ${SVM_PAYEE_ADDRESS}                   ║
 ║                                                        ║
 ║  Endpoints:                                            ║
+║  • GET  /protected        (multi-method payment)      ║
 ║  • GET  /protected-eip3009 (requires $0.001 USDC)     ║
 ║  • GET  /protected-svm (requires $0.001 USDC payment) ║
 ║  • GET  /health        (no payment required)          ║

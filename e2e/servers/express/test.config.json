@@ -8,6 +8,13 @@
   ],
   "endpoints": [
     {
+      "path": "/protected",
+      "method": "GET",
+      "description": "Multi-method endpoint accepting EIP-3009, Permit2, or SVM payment",
+      "requiresPayment": true,
+      "multiMethod": true
+    },
+    {
       "path": "/protected-eip3009",
       "method": "GET",
       "description": "Protected endpoint requiring EIP-3009 payment",

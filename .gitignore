@@ -11,6 +11,7 @@ __pycache__/
 e2e/facilitators/external-proxies/*
 !e2e/facilitators/external-proxies/README.md
 <<<<<<< HEAD
+<<<<<<< HEAD
 typescript/package-lock.json
 # Gas Town infrastructure
 .beads/
@@ -18,3 +19,12 @@ AGENTS.md
 =======
 typescript/package-lock.json.beads/
 >>>>>>> ee4d12e9 (Add .beads to gitignore)
+=======
+typescript/package-lock.json
+
+# Gas Town (added by gt)
+.runtime/
+.claude/
+.beads/
+.logs/
+>>>>>>> a9e98342 (Add multi-method /protected endpoint to e2e servers)
