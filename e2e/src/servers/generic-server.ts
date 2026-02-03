@@ -108,7 +108,7 @@ export class GenericServerProxy extends BaseProxy implements ServerProxy {
 
   async protected(): Promise<ServerResult<ProtectedResponse>> {
     try {
-      const response = await fetch(`http://localhost:${this.port}/protected`);
+      const response = await fetch(`http://localhost:${this.port}/protected-eip3009`);
 
       if (!response.ok) {
         return {
@@ -210,7 +210,7 @@ export class GenericServerProxy extends BaseProxy implements ServerProxy {
   }
 
   getProtectedPath(): string {
-    return `/protected`;
+    return `/protected-eip3009`;
   }
 
   getUrl(): string {

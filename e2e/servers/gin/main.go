@@ -87,7 +87,7 @@ func main() {
 	/**
 	 * Configure x402 payment middleware
 	 *
-	 * This middleware protects the /protected endpoint with a $0.001 USDC payment requirement
+	 * This middleware protects the /protected-eip3009 endpoint with a $0.001 USDC payment requirement
 	 * on the Base Sepolia testnet with bazaar discovery extension.
 	 */
 	// Declare bazaar discovery extension for the GET endpoint
@@ -115,7 +115,7 @@ func main() {
 	}
 
 	routes := x402http.RoutesConfig{
-		"GET /protected": {
+		"GET /protected-eip3009": {
 			Accepts: x402http.PaymentOptions{
 				{
 					Scheme:  "exact",
@@ -182,7 +182,7 @@ func main() {
 	 * This endpoint demonstrates a resource protected by x402 payment middleware.
 	 * Clients must provide a valid payment signature to access this endpoint.
 	 */
-	r.GET("/protected", func(c *ginfw.Context) {
+	r.GET("/protected-eip3009", func(c *ginfw.Context) {
 		if shutdownRequested {
 			c.JSON(http.StatusServiceUnavailable, ginfw.H{
 				"error": "Server shutting down",
@@ -276,7 +276,7 @@ func main() {
 ║  SVM Payee:   %-40s ║
 ║                                                        ║
 ║  Endpoints:                                            ║
-║  • GET  /protected      (requires $0.001 EVM payment) ║
+║  • GET  /protected-eip3009 (requires $0.001 EVM)      ║
 ║  • GET  /protected-svm  (requires $0.001 SVM payment) ║
 ║  • GET  /health         (no payment required)         ║
 ║  • POST /close          (shutdown server)             ║

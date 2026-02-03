@@ -70,7 +70,7 @@ app.use(
   paymentMiddleware(
     {
       // Route-specific payment configuration
-      "GET /protected": {
+      "GET /protected-eip3009": {
         accepts: {
           payTo: EVM_PAYEE_ADDRESS,
           scheme: "exact",
@@ -131,7 +131,7 @@ app.use(
  * This endpoint demonstrates a resource protected by x402 payment middleware.
  * Clients must provide a valid payment signature to access this endpoint.
  */
-app.get("/protected", (c) => {
+app.get("/protected-eip3009", (c) => {
   return c.json({
     message: "Protected endpoint accessed successfully",
     timestamp: new Date().toISOString(),
@@ -198,7 +198,7 @@ console.log(`
 ║  SVM Payee:      ${SVM_PAYEE_ADDRESS}                   ║
 ║                                                        ║
 ║  Endpoints:                                            ║
-║  • GET  /protected     (requires $0.001 USDC payment) ║
+║  • GET  /protected-eip3009 (requires $0.001 USDC)     ║
 ║  • GET  /protected-svm (requires $0.001 USDC payment) ║
 ║  • GET  /health        (no payment required)          ║
 ║  • POST /close         (shutdown server)              ║

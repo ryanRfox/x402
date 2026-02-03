@@ -69,7 +69,7 @@ server.register_extension(bazaar_resource_server_extension)
 
 # Define routes with payment requirements
 routes = {
-    "GET /protected": {
+    "GET /protected-eip3009": {
         "accepts": {
             "scheme": "exact",
             "payTo": EVM_ADDRESS,
@@ -157,8 +157,8 @@ async def x402_payment_middleware(request, call_next):
 shutdown_requested = False
 
 
-@app.get("/protected")
-async def protected_endpoint() -> Dict[str, Any]:
+@app.get("/protected-eip3009")
+async def protected_eip3009_endpoint() -> Dict[str, Any]:
     """Protected endpoint that requires payment."""
     if shutdown_requested:
         raise HTTPException(status_code=503, detail="Server shutting down")

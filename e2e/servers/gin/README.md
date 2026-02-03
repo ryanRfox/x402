@@ -13,7 +13,7 @@ This server demonstrates and tests the x402 Gin middleware with both EVM and SVM
 - ✅ **Settlement Handling** - Payment verification and confirmation
 
 ### Protected Endpoints
-- ✅ `GET /protected` - Requires EVM payment (USDC on Base Sepolia)
+- ✅ `GET /protected-eip3009` - Requires EIP-3009 payment (USDC on Base Sepolia)
 - ✅ `GET /protected-svm` - Requires SVM payment (USDC on Solana Devnet)
 
 ## What It Demonstrates
@@ -36,7 +36,7 @@ r := ginfw.New()
 
 // Define payment routes
 routes := x402http.RoutesConfig{
-    "GET /protected": {
+    "GET /protected-eip3009": {
         Accepts: x402http.PaymentOptions{
             {
                 Scheme:  "exact",
@@ -76,8 +76,8 @@ r.Use(ginmw.X402Payment(ginmw.Config{
 }))
 
 // Define protected endpoints
-r.GET("/protected", func(c *ginfw.Context) {
-    c.JSON(200, ginfw.H{"message": "EVM payment successful!"})
+r.GET("/protected-eip3009", func(c *ginfw.Context) {
+    c.JSON(200, ginfw.H{"message": "EIP-3009 payment successful!"})
 })
 
 r.GET("/protected-svm", func(c *ginfw.Context) {

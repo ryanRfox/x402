@@ -13,7 +13,7 @@ This server demonstrates and tests the x402 Express.js middleware with both EVM 
 - ✅ **Settlement Handling** - Payment verification and confirmation
 
 ### Protected Endpoints
-- ✅ `GET /protected` - Requires EVM payment (USDC on Base Sepolia)
+- ✅ `GET /protected-eip3009` - Requires EIP-3009 payment (USDC on Base Sepolia)
 - ✅ `GET /protected-svm` - Requires SVM payment (USDC on Solana Devnet)
 
 ## What It Demonstrates
@@ -30,7 +30,7 @@ const app = express();
 
 // Define payment requirements for routes
 const routes = {
-  "GET /protected": {
+  "GET /protected-eip3009": {
     scheme: "exact",
     network: "eip155:84532",
     payTo: "0xYourAddress",
@@ -61,8 +61,8 @@ app.use(x402Middleware({
 }));
 
 // Define protected endpoints
-app.get("/protected", (req, res) => {
-  res.json({ message: "EVM payment successful!" });
+app.get("/protected-eip3009", (req, res) => {
+  res.json({ message: "EIP-3009 payment successful!" });
 });
 
 app.get("/protected-svm", (req, res) => {
