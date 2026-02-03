@@ -11,3 +11,6 @@ __pycache__/
 e2e/facilitators/external-proxies/*
 !e2e/facilitators/external-proxies/README.md
 typescript/package-lock.json
+# Gas Town infrastructure
+.beads/
+AGENTS.md
