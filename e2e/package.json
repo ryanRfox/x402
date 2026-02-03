@@ -5,6 +5,7 @@
   "main": "dist/test.js",
   "scripts": {
     "test": "tsx test.ts",
+    "test:unit": "tsx src/balance-aware-selector.test.ts",
     "test:watch": "tsc --watch",
     "setup": "./setup.sh",
     "setup:legacy": "./setup.sh --legacy",
