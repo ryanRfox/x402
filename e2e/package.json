@@ -6,7 +6,8 @@
   "scripts": {
     "test": "tsx test.ts",
     "test:unit": "tsx src/balance-aware-selector.test.ts",
-    "test:balance-e": "tsx scripts/balance-aware-tests-e.ts",
+    "test:balance-c": "tsx src/balance-selection-fallback.test.ts",
+    "test:balance-e": "tsx src/balance-selection-edge.test.ts",
     "test:weth": "tsx src/weth-integration.test.ts",
     "test:watch": "tsc --watch",
     "setup": "./setup.sh",
