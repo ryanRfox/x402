@@ -7,6 +7,7 @@
     "test": "tsx test.ts",
     "test:unit": "tsx src/balance-aware-selector.test.ts",
     "test:balance-e": "tsx scripts/balance-aware-tests-e.ts",
+    "test:weth": "tsx src/weth-integration.test.ts",
     "test:watch": "tsc --watch",
     "setup": "./setup.sh",
     "setup:legacy": "./setup.sh --legacy",
