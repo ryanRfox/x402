@@ -9,6 +9,8 @@
     "test:balance-c": "tsx src/balance-selection-fallback.test.ts",
     "test:balance-e": "tsx src/balance-selection-edge.test.ts",
     "test:weth": "tsx src/weth-integration.test.ts",
+    "test:ci:evm": "tsx test.ts --facilitators=typescript --servers=express --clients=fetch --families=evm --testnet",
+    "test:server-a": "tsx src/server-preference.test.ts",
     "test:watch": "tsc --watch",
     "setup": "./setup.sh",
     "setup:legacy": "./setup.sh --legacy",
