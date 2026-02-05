@@ -66,7 +66,7 @@ app.use(
   paymentMiddleware(
     {
       // Route-specific payment configuration
-      "GET /protected": {
+      "GET /protected-eip3009": {
         accepts: {
           payTo: EVM_PAYEE_ADDRESS,
           scheme: "exact",
@@ -77,7 +77,7 @@ app.use(
           ...declareDiscoveryExtension({
             output: {
               example: {
-                message: "Protected endpoint accessed successfully",
+                message: "EIP-3009 endpoint accessed successfully",
                 timestamp: "2024-01-01T00:00:00Z",
               },
               schema: {
@@ -157,14 +157,14 @@ app.use(
 );
 
 /**
- * Protected endpoint - requires payment to access
+ * Protected EIP-3009 endpoint - requires payment via EIP-3009 flow
  *
- * This endpoint demonstrates a resource protected by x402 payment middleware.
- * Clients must provide a valid payment signature to access this endpoint.
+ * This endpoint demonstrates a resource protected by x402 payment middleware
+ * using the EIP-3009 transfer-with-authorization flow.
  */
-app.get("/protected", (req, res) => {
+app.get("/protected-eip3009", (req, res) => {
   res.json({
-    message: "Protected endpoint accessed successfully",
+    message: "EIP-3009 endpoint accessed successfully",
     timestamp: new Date().toISOString(),
   });
 });
@@ -238,11 +238,11 @@ app.listen(parseInt(PORT), () => {
 ║  SVM Payee:      ${SVM_PAYEE_ADDRESS}                   ║
 ║                                                        ║
 ║  Endpoints:                                            ║
-║  • GET  /protected        (EIP-3009 payment)          ║
-║  • GET  /protected-svm    (SVM payment)               ║
+║  • GET  /protected-eip3009 (EIP-3009 payment)         ║
+║  • GET  /protected-svm     (SVM payment)              ║
 ║  • GET  /protected-permit2 (Permit2 payment)          ║
-║  • GET  /health           (no payment required)       ║
-║  • POST /close            (shutdown server)           ║
+║  • GET  /health            (no payment required)      ║
+║  • POST /close             (shutdown server)          ║
 ╚════════════════════════════════════════════════════════╝
   `);
 });
