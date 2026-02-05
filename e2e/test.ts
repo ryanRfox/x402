@@ -21,7 +21,6 @@ async function setupPermit2Approval(): Promise<boolean> {
     const child = spawn('pnpm', ['permit2:approve'], {
       cwd: process.cwd(),
       stdio: 'pipe',
-      shell: true,
     });
 
     let stderr = '';
