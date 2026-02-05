@@ -116,6 +116,57 @@ app.use(
           }),
         },
       },
+      // Multi-mechanism endpoint - accepts EIP-3009 (USDC), Permit2 (WETH), and SVM payments
+      "GET /protected": {
+        accepts: [
+          // USDC via EIP-3009 (default stablecoin resolution)
+          {
+            payTo: EVM_PAYEE_ADDRESS,
+            scheme: "exact",
+            price: "$0.001",
+            network: EVM_NETWORK,
+          },
+          // WETH via Permit2 (non-EIP-3009 token demonstrating Permit2's value)
+          {
+            payTo: EVM_PAYEE_ADDRESS,
+            scheme: "exact",
+            network: EVM_NETWORK,
+            price: {
+              amount: "1000000000000", // 1e12 = 0.000001 WETH (18 decimals, ~$0.003 at $3k ETH)
+              asset: "0x4200000000000000000000000000000000000006", // Base Sepolia WETH
+              extra: {
+                assetTransferMethod: "permit2",
+              },
+            },
+          },
+          // SVM payment option
+          {
+            payTo: SVM_PAYEE_ADDRESS,
+            scheme: "exact",
+            price: "$0.001",
+            network: SVM_NETWORK,
+          },
+        ],
+        extensions: {
+          ...declareDiscoveryExtension({
+            output: {
+              example: {
+                message: "Multi-mechanism endpoint accessed successfully",
+                timestamp: "2024-01-01T00:00:00Z",
+                method: "multi",
+              },
+              schema: {
+                properties: {
+                  message: { type: "string" },
+                  timestamp: { type: "string" },
+                  method: { type: "string" },
+                },
+                required: ["message", "timestamp", "method"],
+              },
+            },
+          }),
+        },
+      },
       // Permit2 endpoint - explicitly requires Permit2 flow instead of EIP-3009
       "GET /protected-permit2": {
         accepts: {
@@ -155,6 +206,21 @@ app.use(
     server, // Pass pre-configured server instance
   ),
 );
+
+/**
+ * Multi-mechanism endpoint - accepts multiple payment methods
+ *
+ * This endpoint demonstrates the v2 protocol's payment negotiation capability
+ * by accepting USDC via EIP-3009, WETH via Permit2, and SVM payments.
+ * The client SDK auto-selects from the accepts array.
+ */
+app.get("/protected", (req, res) => {
+  res.json({
+    message: "Multi-mechanism endpoint accessed successfully",
+    timestamp: new Date().toISOString(),
+    method: "multi",
+  });
+});
 
 /**
  * Protected EIP-3009 endpoint - requires payment via EIP-3009 flow
@@ -238,6 +304,7 @@ app.listen(parseInt(PORT), () => {
 ║  SVM Payee:      ${SVM_PAYEE_ADDRESS}                   ║
 ║                                                        ║
 ║  Endpoints:                                            ║
+║  • GET  /protected         (multi-mechanism)          ║
 ║  • GET  /protected-eip3009 (EIP-3009 payment)         ║
 ║  • GET  /protected-svm     (SVM payment)              ║
 ║  • GET  /protected-permit2 (Permit2 payment)          ║
