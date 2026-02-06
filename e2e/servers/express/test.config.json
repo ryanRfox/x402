@@ -10,16 +10,9 @@
     {
       "path": "/protected",
       "method": "GET",
-      "description": "Multi-mechanism endpoint accepting EIP-3009, Permit2, and SVM payments",
+      "description": "Multi-mechanism endpoint accepting EIP-3009 and Permit2 payments",
       "requiresPayment": true,
       "protocolFamily": "evm"
-    },
-    {
-      "path": "/protected",
-      "method": "GET",
-      "description": "Multi-mechanism endpoint accepting EIP-3009, Permit2, and SVM payments",
-      "requiresPayment": true,
-      "protocolFamily": "svm"
     },
     {
       "path": "/protected-eip3009",

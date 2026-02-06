@@ -2,9 +2,6 @@ import { config } from "dotenv";
 import { wrapFetchWithPayment, decodePaymentResponseHeader } from "@x402/fetch";
 import { privateKeyToAccount } from "viem/accounts";
 import { registerExactEvmScheme } from "@x402/evm/exact/client";
-import { registerExactSvmScheme } from "@x402/svm/exact/client";
-import { base58 } from "@scure/base";
-import { createKeyPairSignerFromBytes } from "@solana/kit";
 import { x402Client, x402HTTPClient, PaymentPolicy } from "@x402/core/client";
 
 config();
@@ -13,10 +10,6 @@ const baseURL = process.env.RESOURCE_SERVER_URL as string;
 const endpointPath = process.env.ENDPOINT_PATH as string;
 const url = `${baseURL}${endpointPath}`;
 const evmAccount = privateKeyToAccount(process.env.EVM_PRIVATE_KEY as `0x${string}`);
-const svmSigner = await createKeyPairSignerFromBytes(
-  base58.decode(process.env.SVM_PRIVATE_KEY as string),
-);
-
 // Base Sepolia WETH address
 const WETH_ASSET = "0x4200000000000000000000000000000000000006";
 
@@ -26,10 +19,9 @@ const preferWeth: PaymentPolicy = (_version, requirements) => {
   return wethOptions.length > 0 ? wethOptions : requirements;
 };
 
-// Create client and register EVM and SVM schemes, passing the WETH preference policy
+// Create client and register EVM scheme, passing the WETH preference policy
 const client = new x402Client();
 registerExactEvmScheme(client, { signer: evmAccount, policies: [preferWeth] });
-registerExactSvmScheme(client, { signer: svmSigner });
 
 const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 
