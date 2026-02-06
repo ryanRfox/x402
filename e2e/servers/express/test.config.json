@@ -10,7 +10,7 @@
     {
       "path": "/protected",
       "method": "GET",
-      "description": "Multi-mechanism endpoint accepting EIP-3009 and Permit2 payments",
+      "description": "Multi-mechanism endpoint accepting EIP-3009, Permit2, SVM, and WETH payments",
       "requiresPayment": true,
       "protocolFamily": "evm"
     },

@@ -119,23 +119,43 @@ app.use(
           }),
         },
       },
-      // Multi-mechanism endpoint - accepts EIP-3009 (USDC) and Permit2 (WETH) payments
+      // Multi-mechanism endpoint - accepts multiple payment methods
       "GET /protected": {
         accepts: [
-          // USDC via EIP-3009 (default stablecoin resolution)
+          // 1. USDC via EIP-3009 (default stablecoin flow)
           {
             payTo: EVM_PAYEE_ADDRESS,
             scheme: "exact",
             price: "$0.001",
             network: EVM_NETWORK,
           },
-          // WETH via Permit2 (non-EIP-3009 token demonstrating Permit2's value)
+          // 2. USDC via Permit2 (same asset, different auth method)
           {
             payTo: EVM_PAYEE_ADDRESS,
             scheme: "exact",
             network: EVM_NETWORK,
             price: {
-              amount: "1000000000000", // 1e12 = 0.000001 WETH (18 decimals, ~$0.003 at $3k ETH)
+              amount: "1000", // 0.001 USDC (6 decimals)
+              asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia USDC
+              extra: {
+                assetTransferMethod: "permit2",
+              },
+            },
+          },
+          // 3. SVM USDC (cross-chain)
+          {
+            payTo: SVM_PAYEE_ADDRESS,
+            scheme: "exact",
+            price: "$0.001",
+            network: SVM_NETWORK,
+          },
+          // 4. WETH via Permit2 (different asset)
+          {
+            payTo: EVM_PAYEE_ADDRESS,
+            scheme: "exact",
+            network: EVM_NETWORK,
+            price: {
+              amount: "1000000000000", // 1e12 = 0.000001 WETH (18 decimals)
               asset: "0x4200000000000000000000000000000000000006", // Base Sepolia WETH
               extra: {
                 assetTransferMethod: "permit2",
