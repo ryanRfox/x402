@@ -23,6 +23,16 @@ const EVM_PAYEE_ADDRESS = process.env.EVM_PAYEE_ADDRESS as `0x${string}`;
 const SVM_PAYEE_ADDRESS = process.env.SVM_PAYEE_ADDRESS as string;
 const facilitatorUrl = process.env.FACILITATOR_URL;
 
+// Server-side payment option ordering preferences
+const preferredAssets = (process.env.RESOURCE_SERVER_PREFER_ASSET || "")
+  .split(",")
+  .map(s => s.trim().toUpperCase())
+  .filter(Boolean);
+const preferredNetworks = (process.env.RESOURCE_SERVER_PREFER_NETWORK || "")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
+
 if (!EVM_PAYEE_ADDRESS) {
   console.error("❌ EVM_PAYEE_ADDRESS environment variable is required");
   process.exit(1);
@@ -58,6 +68,88 @@ console.log(
   `Facilitator account: ${process.env.EVM_PRIVATE_KEY ? process.env.EVM_PRIVATE_KEY.substring(0, 10) + "..." : "not configured"}`,
 );
 console.log(`Using remote facilitator at: ${facilitatorUrl}`);
+
+// Tagged payment options for the multi-mechanism /protected endpoint.
+// Each entry carries asset/network metadata for preference-based sorting.
+const allPaymentOptions = [
+  {
+    asset: "USDC",
+    network: EVM_NETWORK,
+    label: "USDC/EIP-3009",
+    option: {
+      payTo: EVM_PAYEE_ADDRESS,
+      scheme: "exact" as const,
+      price: "$0.001",
+      network: EVM_NETWORK,
+    },
+  },
+  {
+    asset: "USDC",
+    network: EVM_NETWORK,
+    label: "USDC/Permit2",
+    option: {
+      payTo: EVM_PAYEE_ADDRESS,
+      scheme: "exact" as const,
+      network: EVM_NETWORK,
+      price: {
+        amount: "1000",
+        asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia USDC
+        extra: { assetTransferMethod: "permit2" },
+      },
+    },
+  },
+  {
+    asset: "USDC",
+    network: SVM_NETWORK,
+    label: "USDC/SVM",
+    option: {
+      payTo: SVM_PAYEE_ADDRESS,
+      scheme: "exact" as const,
+      price: "$0.001",
+      network: SVM_NETWORK,
+    },
+  },
+  {
+    asset: "WETH",
+    network: EVM_NETWORK,
+    label: "WETH/Permit2",
+    option: {
+      payTo: EVM_PAYEE_ADDRESS,
+      scheme: "exact" as const,
+      network: EVM_NETWORK,
+      price: {
+        amount: "1000000000000", // 1e12 = 0.000001 WETH (18 decimals)
+        asset: "0x4200000000000000000000000000000000000006", // Base Sepolia WETH
+        extra: { assetTransferMethod: "permit2" },
+      },
+    },
+  },
+];
+
+// Two-key stable sort: asset preference (primary), network preference (secondary).
+// No env vars = no-op (original order preserved).
+function sortByPreference<T extends { asset: string; network: string }>(items: T[]): T[] {
+  if (preferredAssets.length === 0 && preferredNetworks.length === 0) return items;
+  return [...items].sort((a, b) => {
+    const aAsset = preferredAssets.indexOf(a.asset);
+    const bAsset = preferredAssets.indexOf(b.asset);
+    const aAssetRank = aAsset === -1 ? preferredAssets.length : aAsset;
+    const bAssetRank = bAsset === -1 ? preferredAssets.length : bAsset;
+    if (aAssetRank !== bAssetRank) return aAssetRank - bAssetRank;
+
+    const aNet = preferredNetworks.findIndex(p => a.network.startsWith(p));
+    const bNet = preferredNetworks.findIndex(p => b.network.startsWith(p));
+    const aNetRank = aNet === -1 ? preferredNetworks.length : aNet;
+    const bNetRank = bNet === -1 ? preferredNetworks.length : bNet;
+    return aNetRank - bNetRank;
+  });
+}
+
+const sortedOptions = sortByPreference(allPaymentOptions);
+
+if (preferredAssets.length > 0 || preferredNetworks.length > 0) {
+  console.log(`Payment option order: ${sortedOptions.map(o => o.label).join(" → ")}`);
+}
 
 /**
  * Configure x402 payment middleware using builder pattern
@@ -121,48 +213,7 @@ app.use(
       },
       // Multi-mechanism endpoint - accepts multiple payment methods
       "GET /protected": {
-        accepts: [
-          // 1. USDC via EIP-3009 (default stablecoin flow)
-          {
-            payTo: EVM_PAYEE_ADDRESS,
-            scheme: "exact",
-            price: "$0.001",
-            network: EVM_NETWORK,
-          },
-          // 2. USDC via Permit2 (same asset, different auth method)
-          {
-            payTo: EVM_PAYEE_ADDRESS,
-            scheme: "exact",
-            network: EVM_NETWORK,
-            price: {
-              amount: "1000", // 0.001 USDC (6 decimals)
-              asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia USDC
-              extra: {
-                assetTransferMethod: "permit2",
-              },
-            },
-          },
-          // 3. SVM USDC (cross-chain)
-          {
-            payTo: SVM_PAYEE_ADDRESS,
-            scheme: "exact",
-            price: "$0.001",
-            network: SVM_NETWORK,
-          },
-          // 4. WETH via Permit2 (different asset)
-          {
-            payTo: EVM_PAYEE_ADDRESS,
-            scheme: "exact",
-            network: EVM_NETWORK,
-            price: {
-              amount: "1000000000000", // 1e12 = 0.000001 WETH (18 decimals)
-              asset: "0x4200000000000000000000000000000000000006", // Base Sepolia WETH
-              extra: {
-                assetTransferMethod: "permit2",
-              },
-            },
-          },
-        ],
+        accepts: sortedOptions.map(o => o.option),
         extensions: {
           ...declareDiscoveryExtension({
             output: {
