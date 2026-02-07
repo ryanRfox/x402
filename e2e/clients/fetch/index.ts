@@ -23,8 +23,8 @@ registerExactEvmScheme(client, { signer: evmAccount });
 registerExactSvmScheme(client, { signer: svmSigner });
 
 // Optional: prefer specific assets when multiple options are available
-// Usage: PREFER_ASSET=USDC,WETH (comma-separated symbols, preference order)
-const preferredAssets = (process.env.PREFER_ASSET || "")
+// Usage: CLIENT_PREFER_ASSET=USDC,WETH (comma-separated symbols, preference order)
+const preferredAssets = (process.env.CLIENT_PREFER_ASSET || "")
   .split(",")
   .map(s => s.trim().toUpperCase())
   .filter(Boolean);
