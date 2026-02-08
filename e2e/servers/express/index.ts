@@ -172,7 +172,7 @@ app.use(
           ...declareDiscoveryExtension({
             output: {
               example: {
-                message: "EIP-3009 endpoint accessed successfully",
+                message: "Protected endpoint accessed successfully",
                 timestamp: "2024-01-01T00:00:00Z",
               },
               schema: {
@@ -218,7 +218,7 @@ app.use(
           ...declareDiscoveryExtension({
             output: {
               example: {
-                message: "Multi-mechanism endpoint accessed successfully",
+                message: "Protected endpoint accessed successfully",
                 timestamp: "2024-01-01T00:00:00Z",
                 method: "multi",
               },
@@ -283,7 +283,7 @@ app.use(
  */
 app.get("/protected", (req, res) => {
   res.json({
-    message: "Multi-mechanism endpoint accessed successfully",
+    message: "Protected endpoint accessed successfully",
     timestamp: new Date().toISOString(),
     method: "multi",
   });
@@ -297,7 +297,7 @@ app.get("/protected", (req, res) => {
  */
 app.get("/protected-eip3009", (req, res) => {
   res.json({
-    message: "EIP-3009 endpoint accessed successfully",
+    message: "Protected endpoint accessed successfully",
     timestamp: new Date().toISOString(),
   });
 });

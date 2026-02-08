@@ -33,10 +33,12 @@ if (preferredAssets.length > 0) {
   // Testnet asset addresses by symbol (all known addresses across networks)
   const assetAddresses: Record<string, string[]> = {
     USDC: [
-      "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-      "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+      "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia (EVM)
+      "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", // Devnet (SVM)
     ],
-    WETH: ["0x4200000000000000000000000000000000000006"],
+    WETH: [
+      "0x4200000000000000000000000000000000000006", // Base Sepolia (EVM)
+    ],
   };
 
   const preferAssetPolicy: PaymentPolicy = (_version, requirements) => {
