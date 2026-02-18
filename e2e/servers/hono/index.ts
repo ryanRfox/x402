@@ -170,6 +170,41 @@ app.use(
           }),
         },
       },
+      // Permit2 endpoint - explicitly requires Permit2 flow instead of EIP-3009
+      "GET /protected-permit2": {
+        accepts: {
+          payTo: EVM_PAYEE_ADDRESS,
+          scheme: "exact",
+          network: EVM_NETWORK,
+          // Use pre-parsed price with assetTransferMethod to force Permit2
+          price: {
+            amount: "1000", // 0.001 USDC (6 decimals)
+            asset: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // Base Sepolia USDC
+            extra: {
+              assetTransferMethod: "permit2",
+            },
+          },
+        },
+        extensions: {
+          ...declareDiscoveryExtension({
+            output: {
+              example: {
+                message: "Permit2 endpoint accessed successfully",
+                timestamp: "2024-01-01T00:00:00Z",
+                method: "permit2",
+              },
+              schema: {
+                properties: {
+                  message: { type: "string" },
+                  timestamp: { type: "string" },
+                  method: { type: "string" },
+                },
+                required: ["message", "timestamp", "method"],
+              },
+            },
+          }),
+        },
+      },
     },
     x402Server, // Pass pre-configured server instance
   ),
@@ -214,6 +249,20 @@ app.get("/protected-svm", (c) => {
   return c.json({
     message: "Protected endpoint accessed successfully",
     timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * Protected Permit2 endpoint - requires payment via Permit2 flow
+ *
+ * This endpoint demonstrates the Permit2 payment flow.
+ * Clients must have approved Permit2 to spend their USDC before accessing.
+ */
+app.get("/protected-permit2", (c) => {
+  return c.json({
+    message: "Permit2 endpoint accessed successfully",
+    timestamp: new Date().toISOString(),
+    method: "permit2",
   });
 });
 
@@ -267,6 +316,7 @@ console.log(`
 ║  • GET  /protected        (multi-method payment)      ║
 ║  • GET  /protected-eip3009 (requires $0.001 USDC)     ║
 ║  • GET  /protected-svm (requires $0.001 USDC payment) ║
+║  • GET  /protected-permit2 (Permit2 payment)          ║
 ║  • GET  /health        (no payment required)          ║
 ║  • POST /close         (shutdown server)              ║
 ╚════════════════════════════════════════════════════════╝
