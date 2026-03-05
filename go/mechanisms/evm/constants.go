@@ -40,6 +40,7 @@ var (
 	// Network chain IDs
 	ChainIDBase        = big.NewInt(8453)
 	ChainIDBaseSepolia = big.NewInt(84532)
+	ChainIDMezoTestnet = big.NewInt(31611)
 
 	// Network configurations
 	// See DEFAULT_ASSET.md for guidelines on adding new chains
@@ -90,6 +91,26 @@ var (
 				Name:     "USDC",
 				Version:  "2",
 				Decimals: DefaultDecimals,
+			},
+		},
+		// Mezo Testnet
+		"eip155:31611": {
+			ChainID: ChainIDMezoTestnet,
+			DefaultAsset: AssetInfo{
+				Address:  "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503", // mUSD on Mezo Testnet
+				Name:     "Mezo USD",
+				Version:  "1",
+				Decimals: 18,
+			},
+		},
+		// Mezo Testnet (legacy v1 format)
+		"mezo-testnet": {
+			ChainID: ChainIDMezoTestnet,
+			DefaultAsset: AssetInfo{
+				Address:  "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
+				Name:     "Mezo USD",
+				Version:  "1",
+				Decimals: 18,
 			},
 		},
 	}
