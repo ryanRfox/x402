@@ -18,6 +18,7 @@ export const EVM_NETWORK_CHAIN_ID_MAP = {
   story: 1514,
   educhain: 41923,
   "skale-base-sepolia": 324705682,
+  "mezo-testnet": 31611,
 } as const;
 
 export type EvmNetworkV1 = keyof typeof EVM_NETWORK_CHAIN_ID_MAP;

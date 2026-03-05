@@ -201,6 +201,12 @@ export class ExactEvmScheme implements SchemeNetworkServer {
         version: "2",
         decimals: 6,
       }, // Base Sepolia USDC
+      "eip155:31611": {
+        address: "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
+        name: "Mezo USD",
+        version: "1",
+        decimals: 18,
+      }, // Mezo testnet mUSD
     };
 
     const assetInfo = stablecoins[network];
