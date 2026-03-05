@@ -159,6 +159,24 @@ NETWORK_CONFIGS: dict[str, NetworkConfig] = {
             },
         },
     },
+    # Mezo Testnet
+    "eip155:31611": {
+        "chain_id": 31611,
+        "default_asset": {
+            "address": "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
+            "name": "Mezo USD",
+            "version": "1",
+            "decimals": 18,
+        },
+        "supported_assets": {
+            "mUSD": {
+                "address": "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
+                "name": "Mezo USD",
+                "version": "1",
+                "decimals": 18,
+            },
+        },
+    },
 }
 
 # Network aliases (legacy names to CAIP-2)
@@ -170,6 +188,7 @@ NETWORK_ALIASES: dict[str, str] = {
     "mainnet": "eip155:1",
     "polygon": "eip155:137",
     "avalanche": "eip155:43114",
+    "mezo-testnet": "eip155:31611",
 }
 
 # V1 supported networks (legacy name-based)
@@ -189,6 +208,7 @@ V1_NETWORKS = [
     "story",
     "educhain",
     "skale-base-sepolia",
+    "mezo-testnet",
 ]
 
 # V1 network name to chain ID mapping
@@ -209,6 +229,7 @@ V1_NETWORK_CHAIN_IDS: dict[str, int] = {
     "story": 1513,
     "educhain": 656476,
     "skale-base-sepolia": 1444673419,
+    "mezo-testnet": 31611,
 }
 
 # EIP-3009 ABIs
