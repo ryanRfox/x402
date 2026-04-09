@@ -90,7 +90,8 @@ When a resource server requires payment, it responds with a payment required sig
       "maxTimeoutSeconds": 60,
       "extra": {
         "name": "USDC",
-        "version": "2"
+        "version": "2",
+        "decimals": 6
       }
     }
   ],
@@ -162,7 +163,8 @@ The client includes payment authorization as JSON in the payment payload field:
     "maxTimeoutSeconds": 60,
     "extra": {
       "name": "USDC",
-      "version": "2"
+      "version": "2",
+      "decimals": 6
     }
   },
   "payload": {
@@ -355,7 +357,8 @@ Example with actual data:
       "maxTimeoutSeconds": 60,
       "extra": {
         "name": "USDC",
-        "version": "2"
+        "version": "2",
+        "decimals": 6
       }
     },
     "payload": {
@@ -379,7 +382,8 @@ Example with actual data:
     "maxTimeoutSeconds": 60,
     "extra": {
       "name": "USDC",
-      "version": "2"
+      "version": "2",
+      "decimals": 6
     }
   }
 }
@@ -528,7 +532,8 @@ List discoverable x402 resources from the Bazaar.
           "maxTimeoutSeconds": 60,
           "extra": {
             "name": "USDC",
-            "version": "2"
+            "version": "2",
+            "decimals": 6
           }
         }
       ],

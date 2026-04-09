@@ -4,7 +4,7 @@
 
 The `exact` scheme on EVM executes a transfer where the Facilitator (server) pays the gas, but the Client (user) controls the exact flow of funds via cryptographic signatures.
 
-This is implemented via one of two asset transfer methods, depending on the token's capabilities:
+This is implemented via one of three asset transfer methods, depending on the token's capabilities:
 
 | AssetTransferMethod | Use Case                                                     | Recommendation                                 | Usage Semantics                     |
 | :------------------ | :----------------------------------------------------------- | :--------------------------------------------- | :---------------------------------- |
@@ -49,7 +49,8 @@ The `payload` field must contain:
     "extra": {
       "assetTransferMethod": "eip3009",
       "name": "USDC",
-      "version": "2"
+      "version": "2",
+      "decimals": 6
     }
   },
   "payload": {
@@ -65,6 +66,13 @@ The `payload` field must contain:
   }
 }
 ```
+
+**`extra` Field Definitions specific to eip3009:**
+
+- `extra.assetTransferMethod` (required): MUST be `"eip3009"`.
+- `extra.name` (required): The EIP-712 domain name of the token contract. Used for `transferWithAuthorization` signature construction.
+- `extra.version` (required): The EIP-712 domain version of the token contract. Used for `transferWithAuthorization` signature construction.
+- `extra.decimals` (required): The token's decimal precision (integer, same semantics as ERC-20 `decimals()`). Informational for display rendering only. MUST NOT affect payment verification or settlement.
 
 ### Phase 2: Verification Logic
 
@@ -134,7 +142,8 @@ The `payload` field must contain:
     "extra": {
       "assetTransferMethod": "permit2",
       "name": "USDC",
-      "version": "2"
+      "version": "2",
+      "decimals": 6
     }
   }
   "payload": {
@@ -156,6 +165,13 @@ The `payload` field must contain:
   },
 }
 ```
+
+**`extra` Field Definitions specific to permit2:**
+
+- `extra.assetTransferMethod` (required): MUST be `"permit2"`.
+- `extra.name` (conditional): The EIP-712 domain name of the token contract. Required when the token supports EIP-2612 for gasless Permit2 approval.
+- `extra.version` (conditional): The EIP-712 domain version of the token contract. Required when the token supports EIP-2612 for gasless Permit2 approval.
+- `extra.decimals` (required): The token's decimal precision (integer, same semantics as ERC-20 `decimals()`). Informational for display rendering only, MUST NOT affect payment verification or settlement.
 
 ### Phase 3: Verification Logic
 
@@ -252,7 +268,8 @@ The `payload` field must contain:
     "extra": {
       "assetTransferMethod": "erc7710",
       "name": "USDC",
-      "version": "2"
+      "version": "2",
+      "decimals": 6
     }
   },
   "payload": {
@@ -262,6 +279,13 @@ The `payload` field must contain:
   }
 }
 ```
+
+**`extra` Field Definitions specific to erc7710:**
+
+- `extra.assetTransferMethod` (required): MUST be `"erc7710"`.
+- `extra.name` (optional): The EIP-712 domain name of the token contract. Not required for ERC-7710 delegation-based transfers.
+- `extra.version` (optional): The EIP-712 domain version of the token contract. Not required for ERC-7710 delegation-based transfers.
+- `extra.decimals` (required): The token's decimal precision (integer, same semantics as ERC-20 `decimals()`). Informational for display rendering only, MUST NOT affect payment verification or settlement.
 
 **Note:** The structure of `permissionContext` is determined by the specific Delegation Manager implementation. Common implementations (e.g., MetaMask Delegation Framework) use EIP-712 signed delegation chains.
 
