@@ -72,7 +72,7 @@ The `payload` field must contain:
 - `extra.assetTransferMethod` (required): MUST be `"eip3009"`.
 - `extra.name` (required): The EIP-712 domain name of the token contract. Used for `transferWithAuthorization` signature construction.
 - `extra.version` (required): The EIP-712 domain version of the token contract. Used for `transferWithAuthorization` signature construction.
-- `extra.decimals` (required): The token's decimal precision (integer, same semantics as ERC-20 `decimals()`). Informational for display rendering only. MUST NOT affect payment verification or settlement.
+- `extra.decimals` (optional): The token's decimal precision (integer, same semantics as ERC-20 `decimals()`). Informational for display rendering only. MUST NOT affect payment verification or settlement. Servers SHOULD include this field to save clients an on-chain RPC round trip. Clients MUST fall back to querying the token's ERC-20 `decimals()` function when the field is absent, and SHOULD cross-check server-asserted values against a trusted token registry before rendering amounts.
 
 ### Phase 2: Verification Logic
 
@@ -171,7 +171,7 @@ The `payload` field must contain:
 - `extra.assetTransferMethod` (required): MUST be `"permit2"`.
 - `extra.name` (conditional): The EIP-712 domain name of the token contract. Required when the token supports EIP-2612 for gasless Permit2 approval.
 - `extra.version` (conditional): The EIP-712 domain version of the token contract. Required when the token supports EIP-2612 for gasless Permit2 approval.
-- `extra.decimals` (required): The token's decimal precision (integer, same semantics as ERC-20 `decimals()`). Informational for display rendering only, MUST NOT affect payment verification or settlement.
+- `extra.decimals` (optional): The token's decimal precision (integer, same semantics as ERC-20 `decimals()`). Informational for display rendering only. MUST NOT affect payment verification or settlement. Servers SHOULD include this field to save clients an on-chain RPC round trip. Clients MUST fall back to querying the token's ERC-20 `decimals()` function when the field is absent, and SHOULD cross-check server-asserted values against a trusted token registry before rendering amounts.
 
 ### Phase 3: Verification Logic
 
@@ -285,7 +285,7 @@ The `payload` field must contain:
 - `extra.assetTransferMethod` (required): MUST be `"erc7710"`.
 - `extra.name` (optional): The EIP-712 domain name of the token contract. Not required for ERC-7710 delegation-based transfers.
 - `extra.version` (optional): The EIP-712 domain version of the token contract. Not required for ERC-7710 delegation-based transfers.
-- `extra.decimals` (required): The token's decimal precision (integer, same semantics as ERC-20 `decimals()`). Informational for display rendering only, MUST NOT affect payment verification or settlement.
+- `extra.decimals` (optional): The token's decimal precision (integer, same semantics as ERC-20 `decimals()`). Informational for display rendering only. MUST NOT affect payment verification or settlement. Servers SHOULD include this field to save clients an on-chain RPC round trip. Clients MUST fall back to querying the token's ERC-20 `decimals()` function when the field is absent, and SHOULD cross-check server-asserted values against a trusted token registry before rendering amounts.
 
 **Note:** The structure of `permissionContext` is determined by the specific Delegation Manager implementation. Common implementations (e.g., MetaMask Delegation Framework) use EIP-712 signed delegation chains.
 
