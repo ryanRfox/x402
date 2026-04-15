@@ -1,3 +1,5 @@
+import { formatUnits } from "viem";
+import { DEFAULT_STABLECOINS } from "@x402/evm";
 import type {
   PaywallNetworkHandler,
   PaymentRequirements,
@@ -7,23 +9,17 @@ import type {
 import { getEvmPaywallHtml } from "./paywall";
 
 /**
- * Known token decimals by network. Mirrors DEFAULT_STABLECOINS in @x402/evm.
- * Kept here to avoid a cross-package dependency on server internals.
- */
-const KNOWN_DECIMALS: Record<string, number> = {
-  "eip155:4326": 18, // MegaETH MegaUSD
-  "eip155:31611": 18, // Mezo Testnet Mezo USD
-};
-
-/**
- * Resolves the token decimals for a payment requirement.
- * Checks the known decimals map first, then falls back to 6 (USDC default).
+ * Resolves the token decimals for a payment requirement by looking up the
+ * network in `@x402/evm`'s `DEFAULT_STABLECOINS` registry — the same source
+ * the scheme `getAssetDecimals` methods read from and the inline scheme
+ * dispatch in `@x402/core`'s `x402ResourceServer` uses. Falls back to 6
+ * (USDC default) when the network is unknown.
  *
  * @param requirement - The payment requirement
  * @returns The number of decimals for the payment token
  */
-function getTokenDecimals(requirement: PaymentRequirements): number {
-  return KNOWN_DECIMALS[requirement.network] ?? 6;
+export function getDefaultTokenDecimals(requirement: PaymentRequirements): number {
+  return DEFAULT_STABLECOINS[requirement.network]?.decimals ?? 6;
 }
 
 /**
@@ -53,13 +49,11 @@ export const evmPaywall: PaywallNetworkHandler = {
     paymentRequired: PaymentRequired,
     config: PaywallConfig,
   ): string {
-    const decimals = getTokenDecimals(requirement);
-    const divisor = 10 ** decimals;
-    const amount = requirement.amount
-      ? parseFloat(requirement.amount) / divisor
-      : requirement.maxAmountRequired
-        ? parseFloat(requirement.maxAmountRequired) / divisor
-        : 0;
+    const decimals = getDefaultTokenDecimals(requirement);
+    const atomic = requirement.amount ?? requirement.maxAmountRequired;
+    // BigInt + formatUnits preserves precision through the conversion;
+    // parseFloat collapses sub-cent digits on real 18-decimal amounts.
+    const amount = atomic ? Number(formatUnits(BigInt(atomic), decimals)) : 0;
 
     return getEvmPaywallHtml({
       amount,
