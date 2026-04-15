@@ -26,6 +26,14 @@ const options: esbuild.BuildOptions = {
   sourcemap: false,
   platform: "browser",
   target: "es2020",
+  // Downlevel ES2020 syntax features that MetaMask's bundled SES parser rejects.
+  // Keeps BigInt literals (which esbuild won't transpile) while emitting ternaries
+  // for `??`, `?.`, and `??=`/`||=`/`&&=`.
+  supported: {
+    "nullish-coalescing": false,
+    "optional-chain": false,
+    "logical-assignment": false,
+  },
   jsx: "transform",
   define: {
     "process.env.NODE_ENV": '"development"',
