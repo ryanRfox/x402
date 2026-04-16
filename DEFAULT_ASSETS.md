@@ -89,7 +89,11 @@ Add to the `NETWORK_CONFIGS` dict:
 ```
 </details>
 
-### 3. Submit a PR
+### 3. Update user-facing documentation
+
+Update the two user-facing documentation surfaces that enumerate every chain with default-asset support. See the [Documentation Checklist](#documentation-checklist) below for the files and sections to update.
+
+### 4. Submit a PR
 
 Include the chain name and rationale for the asset selection. If the chain team has officially endorsed a stablecoin, mention that.
 
@@ -108,3 +112,14 @@ The default asset is chosen **per chain** based on:
 | **TypeScript** | `typescript/packages/mechanisms/evm/src/shared/defaultAssets.ts` | `DEFAULT_STABLECOINS` |
 | **Go** | `go/mechanisms/evm/constants.go` | `NetworkConfigs` |
 | **Python** | `python/x402/mechanisms/evm/constants.py` | `NETWORK_CONFIGS` |
+
+## Documentation Checklist
+
+After updating the three SDK registries above, also update the user-facing documentation so readers know which chains have default-asset support:
+
+| Surface | File | Section |
+|---------|------|---------|
+| **User-facing docs table** | `docs/core-concepts/network-and-token-support.mdx` | `### EVM` — append a row to the default-assets table with the chain, CAIP-2 ID, token address, EIP-712 name, decimals, and transfer method |
+| **Go SDK README** | `go/mechanisms/evm/README.md` | `## Supported Networks` — append a bullet to the "Networks with default assets configured" list |
+
+The Go SDK README and the user-facing docs table enumerate every chain with default-asset support; both should be kept in sync with the registries above when a new chain is added.
