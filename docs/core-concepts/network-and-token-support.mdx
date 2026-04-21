@@ -124,7 +124,7 @@ When you use `"$0.01"` syntax, x402 needs to know which stablecoin to use. The f
 There are two distinct paths, depending on your goal:
 
 1. **[Runtime Registration](#runtime-registration)** — use any network in your own server code without modifying the x402 source. No PR required.
-2. **[Contributing a New Default Asset](#contributing-a-new-default-asset)** — upstream a chain so it appears in the default-asset tables above and supports `"$0.01"` dollar-string pricing out of the box. Requires a PR across the three SDKs and the docs surfaces.
+2. **[Contributing a New Default Asset](#contributing-a-new-default-asset)** — upstream a chain so it appears in the default-asset tables above and supports `"$0.01"` dollar-string pricing out of the box. Requires a PR updating the TypeScript, Go, and Python SDK registries.
 
 ### Runtime Registration
 
@@ -207,7 +207,7 @@ x402 uses dynamic network registration — you can support any EVM network witho
 
 ### Contributing a New Default Asset
 
-To add a chain to the [default-asset tables above](#default-assets-for-dollar-string-pricing) so that dollar-string pricing (`"$0.01"`) works out of the box, open a PR against [x402-foundation/x402](https://github.com/x402-foundation/x402). Follow the full cross-SDK + documentation walkthrough in [DEFAULT_ASSETS.md](https://github.com/x402-foundation/x402/blob/main/DEFAULT_ASSETS.md), which names every file that must be updated (TypeScript, Go, and Python registries; this page's default-asset table; and the Go SDK README).
+To add a chain to the [default-asset tables above](#default-assets-for-dollar-string-pricing) so that dollar-string pricing (`"$0.01"`) works out of the box, open a PR against [x402-foundation/x402](https://github.com/x402-foundation/x402). Follow the cross-SDK walkthrough in [DEFAULT_ASSETS.md](https://github.com/x402-foundation/x402/blob/main/DEFAULT_ASSETS.md), which names every file in the TypeScript, Go, and Python registries that must be updated.
 
 ## Facilitators
 
