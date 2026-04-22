@@ -55,6 +55,24 @@ describe("Network Handlers", () => {
       expect(html).toContain("<!DOCTYPE html>");
       expect(html).toMatch(/Test App|EVM Paywall/);
     });
+
+    it("injects configured faucetUrl into window.x402", () => {
+      const html = evmPaywall.generateHtml(evmRequirement, mockPaymentRequired, {
+        testnet: true,
+        faucetUrl: "https://mezo.org/feature/borrow",
+      });
+
+      expect(html).toContain("faucetUrl:");
+      expect(html).toContain("https://mezo.org/feature/borrow");
+    });
+
+    it("emits faucetUrl: undefined when not configured (paywall falls back to faucet.circle.com)", () => {
+      const html = evmPaywall.generateHtml(evmRequirement, mockPaymentRequired, {
+        testnet: true,
+      });
+
+      expect(html).toMatch(/faucetUrl:\s*undefined/);
+    });
   });
 
   describe("svmPaywall", () => {
