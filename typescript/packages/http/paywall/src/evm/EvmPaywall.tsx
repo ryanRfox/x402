@@ -56,6 +56,13 @@ export function EvmPaywall({ paymentRequired, onSuccessfulResponse }: EvmPaywall
 
   const chainId = parseInt(network.split(":")[1]);
 
+  // Mezo Testnet (31611) and Mezo Mainnet (31612) use Mezo USD, not Circle USDC;
+  // the Circle faucet is a dead-end for these users. Route them to Mezo's mint flow.
+  const faucetUrl =
+    chainId === 31611 || chainId === 31612
+      ? "https://mezo.org/feature/borrow"
+      : "https://faucet.circle.com/";
+
   // Find the chain from viem's chain definitions
   const paymentChain: Chain | undefined = Object.values(allChains).find(c => c.id === chainId);
 
@@ -205,7 +212,7 @@ export function EvmPaywall({ paymentRequired, onSuccessfulResponse }: EvmPaywall
         {testnet && (
           <p className="instructions">
             Need {tokenName} on {chainName}?{" "}
-            <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer">
+            <a href={faucetUrl} target="_blank" rel="noopener noreferrer">
               Get some <u>here</u>.
             </a>
           </p>
