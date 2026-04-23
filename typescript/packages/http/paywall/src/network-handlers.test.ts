@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_STABLECOINS } from "@x402/evm";
 import { evmPaywall, getDefaultTokenDecimals } from "./evm";
+import { NETWORK_DECIMALS } from "./evm/gen/decimals";
 import { svmPaywall } from "./svm";
 import type { PaymentRequired, PaymentRequirements } from "./types";
 
@@ -149,6 +150,20 @@ describe("Network Handlers", () => {
         network: "eip155:9999999", // unknown network
       };
       expect(getDefaultTokenDecimals(req)).toBe(6);
+    });
+
+    it("NETWORK_DECIMALS stays in sync with DEFAULT_STABLECOINS", () => {
+      // The generated `src/evm/gen/decimals.ts` file is emitted by
+      // `src/evm/build.ts` from `@x402/evm`'s `DEFAULT_STABLECOINS`. This
+      // test pins the drift invariant in-process so a forgotten
+      // `pnpm run build:paywall` after a `DEFAULT_STABLECOINS` change is
+      // caught here (complements the CI regen-diff guard in #2054).
+      for (const [network, info] of Object.entries(DEFAULT_STABLECOINS)) {
+        expect(NETWORK_DECIMALS[network], `drift on ${network}`).toBe(info.decimals);
+      }
+      expect(Object.keys(NETWORK_DECIMALS).sort()).toStrictEqual(
+        Object.keys(DEFAULT_STABLECOINS).sort(),
+      );
     });
   });
 

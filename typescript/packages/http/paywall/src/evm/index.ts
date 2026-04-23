@@ -1,5 +1,4 @@
 import { formatUnits } from "viem";
-import { DEFAULT_STABLECOINS } from "@x402/evm";
 import type {
   PaywallNetworkHandler,
   PaymentRequirements,
@@ -7,19 +6,21 @@ import type {
   PaywallConfig,
 } from "../types";
 import { getEvmPaywallHtml } from "./paywall";
+import { NETWORK_DECIMALS } from "./gen/decimals";
 
 /**
  * Resolves the token decimals for a payment requirement by looking up the
- * network in `@x402/evm`'s `DEFAULT_STABLECOINS` registry — the same source
- * the scheme `getAssetDecimals` methods read from and the inline scheme
- * dispatch in `@x402/core`'s `x402ResourceServer` uses. Falls back to 6
- * (USDC default) when the network is unknown.
+ * network in the build-time-generated `NETWORK_DECIMALS` map. That map is
+ * derived from `@x402/evm`'s `DEFAULT_STABLECOINS` (the same source the
+ * scheme `getAssetDecimals` methods read from) and is regenerated via
+ * `pnpm --filter @x402/paywall run build:paywall`. Falls back to 6 (USDC
+ * default) when the network is unknown.
  *
  * @param requirement - The payment requirement
  * @returns The number of decimals for the payment token
  */
 export function getDefaultTokenDecimals(requirement: PaymentRequirements): number {
-  return DEFAULT_STABLECOINS[requirement.network]?.decimals ?? 6;
+  return NETWORK_DECIMALS[requirement.network] ?? 6;
 }
 
 /**
