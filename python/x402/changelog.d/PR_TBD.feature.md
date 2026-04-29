@@ -1,0 +1,1 @@
+Added SDK-configurable faucet URL plus chain-aware registry to the paywall: `PaywallConfig.faucet_url` (global override), `PaywallConfig.faucet_urls` (per-chain map keyed by CAIP-2), `PaywallBuilder.with_config(faucet_url=..., faucet_urls=...)`, and `AssetInfo.faucet_url` on EVM and SVM `NETWORK_CONFIGS` (testnet entries seeded).

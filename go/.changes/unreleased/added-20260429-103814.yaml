@@ -1,0 +1,3 @@
+kind: added
+body: 'Add SDK-configurable faucet URL plus chain-aware registry to the paywall: PaywallConfig gains FaucetURL (global override) and FaucetURLs (per-chain map keyed by CAIP-2); AssetInfo gains FaucetURL on EVM and SVM; testnet entries seeded.'
+time: 2026-04-29T10:38:14.93683-04:00
