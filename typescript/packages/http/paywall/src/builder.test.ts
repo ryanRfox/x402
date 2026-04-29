@@ -120,6 +120,37 @@ describe("PaywallBuilder", () => {
       expect(html).toContain("Test App");
       expect(html).toContain("/runtime-logo.png");
     });
+
+    it("threads builder faucetUrl into the paywall config", () => {
+      const paywall = createPaywall()
+        .withNetwork(evmPaywall)
+        .withConfig({
+          testnet: true,
+          faucetUrl: "https://mezo.org/feature/borrow",
+        })
+        .build();
+
+      const html = paywall.generateHtml(mockPaymentRequired);
+
+      expect(html).toContain("https://mezo.org/feature/borrow");
+    });
+
+    it("runtime faucetUrl overrides builder faucetUrl", () => {
+      const paywall = createPaywall()
+        .withNetwork(evmPaywall)
+        .withConfig({
+          testnet: true,
+          faucetUrl: "https://builder-default.example/faucet",
+        })
+        .build();
+
+      const html = paywall.generateHtml(mockPaymentRequired, {
+        faucetUrl: "https://runtime-override.example/faucet",
+      });
+
+      expect(html).toContain("https://runtime-override.example/faucet");
+      expect(html).not.toContain("https://builder-default.example/faucet");
+    });
   });
 
   describe("generateHtml", () => {

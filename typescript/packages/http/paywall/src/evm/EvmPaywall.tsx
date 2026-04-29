@@ -205,7 +205,11 @@ export function EvmPaywall({ paymentRequired, onSuccessfulResponse }: EvmPaywall
         {testnet && (
           <p className="instructions">
             Need {tokenName} on {chainName}?{" "}
-            <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer">
+            <a
+              href={x402.faucetUrl ?? "https://faucet.circle.com/"}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Get some <u>here</u>.
             </a>
           </p>

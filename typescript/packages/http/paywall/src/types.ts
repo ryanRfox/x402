@@ -6,6 +6,14 @@ export interface PaywallConfig {
   appLogo?: string;
   currentUrl?: string;
   testnet?: boolean;
+  /**
+   * URL the testnet "Need {tokenName} on {chainName}? Get some here" link
+   * points to. Defaults to `https://faucet.circle.com/` (appropriate for
+   * Circle-native USDC chains). Override for chains whose default asset is
+   * not Circle USDC — e.g. `https://mezo.org/feature/borrow` for Mezo USD,
+   * an L2 bridge, a dex, or a project-specific mint flow.
+   */
+  faucetUrl?: string;
 }
 
 /**

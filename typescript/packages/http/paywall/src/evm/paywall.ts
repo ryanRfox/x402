@@ -42,6 +42,7 @@ interface EvmPaywallOptions {
   testnet: boolean;
   appName?: string;
   appLogo?: string;
+  faucetUrl?: string;
 }
 
 /**
@@ -54,6 +55,7 @@ interface EvmPaywallOptions {
  * @param options.testnet - Whether to use testnet or mainnet
  * @param options.appName - The name of the application to display in the wallet connection modal
  * @param options.appLogo - The logo of the application to display in the wallet connection modal
+ * @param options.faucetUrl - Override URL for the testnet "Get some here" link (default: faucet.circle.com)
  * @returns HTML string for the paywall page
  */
 export function getEvmPaywallHtml(options: EvmPaywallOptions): string {
@@ -63,7 +65,7 @@ export function getEvmPaywallHtml(options: EvmPaywallOptions): string {
     return `<!DOCTYPE html><html><body><h1>EVM Paywall (run pnpm build:paywall to generate full template)</h1></body></html>`;
   }
 
-  const { amount, testnet, paymentRequired, currentUrl, appName, appLogo } = options;
+  const { amount, testnet, paymentRequired, currentUrl, appName, appLogo, faucetUrl } = options;
 
   const logOnTestnet = testnet
     ? "console.log('EVM Payment required initialized:', window.x402);"
@@ -83,6 +85,7 @@ export function getEvmPaywallHtml(options: EvmPaywallOptions): string {
       },
       appName: "${escapeString(appName || "")}",
       appLogo: "${escapeString(appLogo || "")}",
+      faucetUrl: ${faucetUrl ? `"${escapeString(faucetUrl)}"` : "undefined"},
     };
     ${logOnTestnet}
   </script>`;
