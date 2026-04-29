@@ -46,6 +46,8 @@ export const avmPaywall: PaywallNetworkHandler = {
       testnet: config.testnet ?? true,
       appName: config.appName,
       appLogo: config.appLogo,
+      faucetUrl: config.faucetUrl,
+      faucetUrls: config.faucetUrls,
     });
   },
 };

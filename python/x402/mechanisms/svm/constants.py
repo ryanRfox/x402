@@ -95,12 +95,18 @@ ERR_MEMO_COUNT = "invalid_exact_svm_payload_memo_count"
 SETTLEMENT_TTL_SECONDS = 120.0
 
 
-class AssetInfo(TypedDict):
-    """Information about a token asset."""
+class _AssetInfoRequired(TypedDict):
+    """Required fields for a token asset."""
 
     address: str
     name: str
     decimals: int
+
+
+class AssetInfo(_AssetInfoRequired, total=False):
+    """Information about a token asset."""
+
+    faucet_url: str
 
 
 class NetworkConfig(TypedDict):
@@ -131,6 +137,7 @@ NETWORK_CONFIGS: dict[str, NetworkConfig] = {
             "address": USDC_DEVNET_ADDRESS,
             "name": "USD Coin",
             "decimals": 6,
+            "faucet_url": "https://faucet.circle.com/",
         },
     },
     # Solana Testnet
@@ -141,6 +148,7 @@ NETWORK_CONFIGS: dict[str, NetworkConfig] = {
             "address": USDC_TESTNET_ADDRESS,
             "name": "USD Coin",
             "decimals": 6,
+            "faucet_url": "https://faucet.circle.com/",
         },
     },
 }

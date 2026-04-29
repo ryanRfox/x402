@@ -376,6 +376,7 @@ class AssetInfo(_AssetInfoRequired, total=False):
 
     asset_transfer_method: str
     supports_eip2612: bool
+    faucet_url: str
 
 
 class _NetworkConfigRequired(TypedDict):
@@ -410,6 +411,7 @@ NETWORK_CONFIGS: dict[str, NetworkConfig] = {
             "name": "USDC",
             "version": "2",
             "decimals": 6,
+            "faucet_url": "https://faucet.circle.com/",
         },
     },
     # MegaETH Mainnet (uses Permit2 instead of EIP-3009, supports EIP-2612)
@@ -444,6 +446,7 @@ NETWORK_CONFIGS: dict[str, NetworkConfig] = {
             "decimals": 18,
             "asset_transfer_method": "permit2",
             "supports_eip2612": True,
+            "faucet_url": "https://faucet.test.mezo.org/",
         },
     },
     # Stable Mainnet
@@ -464,6 +467,7 @@ NETWORK_CONFIGS: dict[str, NetworkConfig] = {
             "name": "USDT0",
             "version": "1",
             "decimals": 6,
+            "faucet_url": "https://faucet.stable.xyz/faucet",
         },
     },
     # Polygon Mainnet
@@ -502,6 +506,7 @@ NETWORK_CONFIGS: dict[str, NetworkConfig] = {
             "name": "USD Coin",
             "version": "2",
             "decimals": 6,
+            "faucet_url": "https://faucet.circle.com/",
         },
     },
 }

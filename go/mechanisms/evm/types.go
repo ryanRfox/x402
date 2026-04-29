@@ -303,6 +303,12 @@ type AssetInfo struct {
 	Decimals            int
 	AssetTransferMethod AssetTransferMethod
 	SupportsEip2612     bool
+	// FaucetURL is the optional faucet URL for this chain's default asset.
+	// Surfaces in the paywall's testnet "Need {token} on {chain}? Get some
+	// here." link when no consumer override is supplied. Only meaningful for
+	// testnet chains (mainnet entries leave this empty since the paywall
+	// faucet UI is testnet-gated).
+	FaucetURL string
 }
 
 // NetworkConfig contains network-specific configuration

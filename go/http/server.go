@@ -44,12 +44,24 @@ type HTTPAdapter interface {
 // Configuration Types
 // ============================================================================
 
-// PaywallConfig configures the HTML paywall for browser requests
+// PaywallConfig configures the HTML paywall for browser requests.
+//
+// Faucet URL resolution precedence at render time (top wins):
+//  1. FaucetURLs[caip2]   — per-chain override
+//  2. FaucetURL           — global override
+//  3. The mechanism's curated chain registry (e.g. NetworkConfigs for EVM)
+//     when the selected chain has a FaucetURL populated
+//  4. https://faucet.circle.com/  — final hardcoded fallback
 type PaywallConfig struct {
 	AppName    string `json:"appName,omitempty"`
 	AppLogo    string `json:"appLogo,omitempty"`
 	CurrentURL string `json:"currentUrl,omitempty"`
 	Testnet    bool   `json:"testnet,omitempty"`
+	// FaucetURL is a global override applied to every chain in the paywall.
+	FaucetURL string `json:"faucetUrl,omitempty"`
+	// FaucetURLs is a per-chain override map keyed by CAIP-2 identifier
+	// (e.g. "eip155:84532"). Wins over FaucetURL for the selected chain.
+	FaucetURLs map[string]string `json:"faucetUrls,omitempty"`
 }
 
 // DynamicPayToFunc is a function that resolves payTo address dynamically based on request context
@@ -962,12 +974,16 @@ func (s *x402HTTPResourceServer) generatePaywallHTML(paymentRequired x402.Paymen
 	appLogo := ""
 	testnet := false
 	currentURL := ""
+	faucetURL := ""
+	var faucetURLs map[string]string
 
 	if config != nil {
 		appName = config.AppName
 		appLogo = config.AppLogo
 		testnet = config.Testnet
 		currentURL = config.CurrentURL
+		faucetURL = config.FaucetURL
+		faucetURLs = config.FaucetURLs
 	}
 
 	// Use resource URL as currentUrl if not explicitly configured
@@ -986,7 +1002,9 @@ func (s *x402HTTPResourceServer) generatePaywallHTML(paymentRequired x402.Paymen
 			amount: %.6f,
 			testnet: %t,
 			displayAmount: %.2f,
-			currentUrl: "%s"
+			currentUrl: "%s",
+			faucetUrl: %s,
+			faucetUrls: %s
 		};
 	</script>`,
 		string(requirementsJSON),
@@ -996,6 +1014,8 @@ func (s *x402HTTPResourceServer) generatePaywallHTML(paymentRequired x402.Paymen
 		testnet,
 		displayAmount,
 		html.EscapeString(currentURL),
+		marshalFaucetURL(faucetURL),
+		marshalFaucetURLs(faucetURLs),
 	)
 
 	// Select template based on network
@@ -1050,12 +1070,16 @@ func injectPaywallConfig(template string, paymentRequired types.PaymentRequired,
 	appLogo := ""
 	testnet := false
 	currentURL := ""
+	faucetURL := ""
+	var faucetURLs map[string]string
 
 	if config != nil {
 		appName = config.AppName
 		appLogo = config.AppLogo
 		testnet = config.Testnet
 		currentURL = config.CurrentURL
+		faucetURL = config.FaucetURL
+		faucetURLs = config.FaucetURLs
 	}
 
 	if currentURL == "" && paymentRequired.Resource != nil {
@@ -1072,7 +1096,9 @@ func injectPaywallConfig(template string, paymentRequired types.PaymentRequired,
 			amount: %.6f,
 			testnet: %t,
 			displayAmount: %.2f,
-			currentUrl: "%s"
+			currentUrl: "%s",
+			faucetUrl: %s,
+			faucetUrls: %s
 		};
 	</script>`,
 		string(requirementsJSON),
@@ -1082,9 +1108,35 @@ func injectPaywallConfig(template string, paymentRequired types.PaymentRequired,
 		testnet,
 		displayAmount,
 		html.EscapeString(currentURL),
+		marshalFaucetURL(faucetURL),
+		marshalFaucetURLs(faucetURLs),
 	)
 
 	return strings.Replace(template, "</head>", configScript+"\n</head>", 1)
+}
+
+// marshalFaucetURL renders FaucetURL as a JS literal: a JSON-quoted string or `undefined`.
+func marshalFaucetURL(url string) string {
+	if url == "" {
+		return "undefined"
+	}
+	encoded, err := json.Marshal(url)
+	if err != nil {
+		return "undefined"
+	}
+	return string(encoded)
+}
+
+// marshalFaucetURLs renders FaucetURLs as a JS literal: a JSON object or `undefined`.
+func marshalFaucetURLs(urls map[string]string) string {
+	if len(urls) == 0 {
+		return "undefined"
+	}
+	encoded, err := json.Marshal(urls)
+	if err != nil {
+		return "undefined"
+	}
+	return string(encoded)
 }
 
 // ============================================================================

@@ -11,6 +11,7 @@ const DIST_DIR = "src/evm/dist";
 const OUTPUT_HTML = path.join(DIST_DIR, "evm-paywall.html");
 const OUTPUT_TS = path.join("src/evm/gen", "template.ts");
 const OUTPUT_DECIMALS = path.join("src/evm/gen", "decimals.ts");
+const OUTPUT_FAUCETS = path.join("src/evm/gen", "faucetUrls.ts");
 
 // Cross-language template output paths (relative to package root where build runs)
 const PYTHON_DIR = path.join("..", "..", "..", "..", "python", "x402", "http", "paywall");
@@ -130,6 +131,40 @@ ${decimalsEntries}
 `;
       fs.writeFileSync(OUTPUT_DECIMALS, decimalsContent);
       console.log(`[EVM] Generated decimals.ts (${Object.keys(decimalsMap).length} networks)`);
+
+      // Generate a faucet-URL lookup sourced from @x402/evm's
+      // DEFAULT_STABLECOINS. Only chains with a `faucetUrl` populated appear
+      // in the map; others fall through to the paywall's hardcoded fallback.
+      // Same regen contract as decimals.ts (CI drift check covers it).
+      const faucetEntries = Object.entries(DEFAULT_STABLECOINS)
+        .filter(([, info]) => typeof info.faucetUrl === "string" && info.faucetUrl.length > 0)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(
+          ([network, info]) => `  ${JSON.stringify(network)}: ${JSON.stringify(info.faucetUrl)},`,
+        )
+        .join("\n");
+      const rawFaucetsContent = `// THIS FILE IS AUTO-GENERATED - DO NOT EDIT
+// Source: @x402/evm DEFAULT_STABLECOINS (faucetUrl only).
+// Regenerate via: pnpm --filter @x402/paywall run build:paywall
+
+/**
+ * Per-network testnet faucet URLs, keyed by CAIP-2 network identifier.
+ * Mirrors the \`faucetUrl\` field of \`DEFAULT_STABLECOINS\` from \`@x402/evm\`
+ * and is emitted at build time so the paywall's runtime module graph does
+ * not depend on \`@x402/evm\`. Networks without a configured faucet URL are
+ * absent — callers should fall back to the paywall's hardcoded default
+ * (\`https://faucet.circle.com/\`) or to a consumer-provided override on
+ * \`PaywallConfig.faucetUrl\` / \`PaywallConfig.faucetUrls[caip2]\`.
+ */
+export const FAUCET_URLS: Record<string, string> = {
+${faucetEntries}
+};
+`;
+      const faucetsContent = await formatTypeScript(OUTPUT_FAUCETS, rawFaucetsContent);
+      fs.writeFileSync(OUTPUT_FAUCETS, faucetsContent);
+      console.log(
+        `[EVM] Generated faucetUrls.ts (${faucetEntries.split("\n").filter(l => l).length} networks)`,
+      );
 
       // Write the Python template file
       if (fs.existsSync(PYTHON_DIR)) {

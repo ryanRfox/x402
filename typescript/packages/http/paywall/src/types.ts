@@ -7,13 +7,30 @@ export interface PaywallConfig {
   currentUrl?: string;
   testnet?: boolean;
   /**
-   * URL the testnet "Need {tokenName} on {chainName}? Get some here" link
-   * points to. Defaults to `https://faucet.circle.com/` (appropriate for
-   * Circle-native USDC chains). Override for chains whose default asset is
-   * not Circle USDC — e.g. `https://mezo.org/feature/borrow` for Mezo USD,
-   * an L2 bridge, a dex, or a project-specific mint flow.
+   * Global override for the testnet "Need {tokenName} on {chainName}? Get
+   * some here" link. Applies to every chain rendered by the paywall.
+   *
+   * Resolution precedence (top wins):
+   *   1. {@link faucetUrls}[caip2] — per-chain override
+   *   2. {@link faucetUrl} — global override (this field)
+   *   3. The mechanism's curated chain registry (e.g. `DEFAULT_STABLECOINS`
+   *      for EVM) when the selected chain has a `faucetUrl` populated
+   *   4. The mechanism's hardcoded fallback (`https://faucet.circle.com/`
+   *      for EVM/SVM, the Algorand dispenser for AVM)
+   *
+   * Use this for whitelabel deployments that want every chain to point at
+   * a single mint flow / dex / bridge regardless of the selected chain.
    */
   faucetUrl?: string;
+  /**
+   * Per-chain override for the testnet faucet link, keyed by CAIP-2 network
+   * identifier (e.g. `"eip155:84532"`, `"solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"`).
+   *
+   * Wins over {@link faucetUrl} for the selected chain. Use this when
+   * different chains in the same paywall need distinct faucets (e.g. one
+   * chain points at a Circle faucet, another at a project-specific mint).
+   */
+  faucetUrls?: Record<string, string>;
 }
 
 /**

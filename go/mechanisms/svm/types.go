@@ -59,6 +59,12 @@ type AssetInfo struct {
 	Address  string // Mint address
 	Symbol   string // Token symbol (e.g., "USDC")
 	Decimals int    // Token decimals
+	// FaucetURL is the optional faucet URL for this network's default asset.
+	// Surfaces in the paywall's testnet "Need {token} on {chain}? Get some
+	// here." link when no consumer override is supplied. Only meaningful for
+	// non-mainnet networks (mainnet entries leave this empty since the
+	// paywall faucet UI is testnet-gated).
+	FaucetURL string
 }
 
 // NetworkConfig contains network-specific configuration

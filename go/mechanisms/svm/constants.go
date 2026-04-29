@@ -86,9 +86,10 @@ var (
 			CAIP2:  SolanaDevnetCAIP2,
 			RPCURL: "https://api.devnet.solana.com",
 			DefaultAsset: AssetInfo{
-				Address:  USDCDevnetAddress,
-				Symbol:   "USDC",
-				Decimals: DefaultDecimals,
+				Address:   USDCDevnetAddress,
+				Symbol:    "USDC",
+				Decimals:  DefaultDecimals,
+				FaucetURL: "https://faucet.circle.com/",
 			},
 		},
 		SolanaTestnetCAIP2: {
@@ -96,9 +97,10 @@ var (
 			CAIP2:  SolanaTestnetCAIP2,
 			RPCURL: "https://api.testnet.solana.com",
 			DefaultAsset: AssetInfo{
-				Address:  USDCTestnetAddress,
-				Symbol:   "USDC",
-				Decimals: DefaultDecimals,
+				Address:   USDCTestnetAddress,
+				Symbol:    "USDC",
+				Decimals:  DefaultDecimals,
+				FaucetURL: "https://faucet.circle.com/",
 			},
 		},
 	}

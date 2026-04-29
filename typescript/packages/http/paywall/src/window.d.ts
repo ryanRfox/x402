@@ -10,6 +10,7 @@ declare global {
       appName?: string;
       appLogo?: string;
       faucetUrl?: string;
+      faucetUrls?: Record<string, string>;
       config: {
         chainConfig: Record<
           string,

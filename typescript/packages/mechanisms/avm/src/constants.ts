@@ -64,9 +64,24 @@ export const USDC_TESTNET_ASA_ID = "10458941";
 export const USDC_DECIMALS = 6;
 
 /**
+ * Information about a USDC ASA configuration on Algorand.
+ *
+ * `faucetUrl` is optional and surfaces in the paywall's testnet "Need {token}
+ * on {chain}? Get some here." link when no consumer override is supplied.
+ * Only meaningful for testnet entries (mainnet leaves it undefined since the
+ * paywall faucet UI is testnet-gated).
+ */
+export type AvmAssetConfig = {
+  asaId: string;
+  name: string;
+  decimals: number;
+  faucetUrl?: string;
+};
+
+/**
  * USDC configuration per network
  */
-export const USDC_CONFIG: Record<string, { asaId: string; name: string; decimals: number }> = {
+export const USDC_CONFIG: Record<string, AvmAssetConfig> = {
   [ALGORAND_MAINNET_CAIP2]: {
     asaId: USDC_MAINNET_ASA_ID,
     name: "USDC",
@@ -76,6 +91,7 @@ export const USDC_CONFIG: Record<string, { asaId: string; name: string; decimals
     asaId: USDC_TESTNET_ASA_ID,
     name: "USDC",
     decimals: USDC_DECIMALS,
+    faucetUrl: "https://dispenser.testnet.aws.algodev.network/",
   },
 };
 

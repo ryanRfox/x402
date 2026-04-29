@@ -106,10 +106,11 @@ var (
 		"eip155:84532": {
 			ChainID: ChainIDBaseSepolia,
 			DefaultAsset: AssetInfo{
-				Address:  "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // USDC on Base Sepolia
-				Name:     "USDC",
-				Version:  "2",
-				Decimals: DefaultDecimals,
+				Address:   "0x036CbD53842c5426634e7929541eC2318f3dCF7e", // USDC on Base Sepolia
+				Name:      "USDC",
+				Version:   "2",
+				Decimals:  DefaultDecimals,
+				FaucetURL: "https://faucet.circle.com/",
 			},
 		},
 		// MegaETH Mainnet (uses Permit2 instead of EIP-3009, supports EIP-2612)
@@ -144,6 +145,7 @@ var (
 				Decimals:            18,
 				AssetTransferMethod: AssetTransferMethodPermit2,
 				SupportsEip2612:     true,
+				FaucetURL:           "https://faucet.test.mezo.org/",
 			},
 		},
 		// Stable Mainnet
@@ -160,10 +162,11 @@ var (
 		"eip155:2201": {
 			ChainID: ChainIDStableTestnet,
 			DefaultAsset: AssetInfo{
-				Address:  "0x78Cf24370174180738C5B8E352B6D14c83a6c9A9", // USDT0 on Stable Testnet
-				Name:     "USDT0",
-				Version:  "1",
-				Decimals: DefaultDecimals,
+				Address:   "0x78Cf24370174180738C5B8E352B6D14c83a6c9A9", // USDT0 on Stable Testnet
+				Name:      "USDT0",
+				Version:   "1",
+				Decimals:  DefaultDecimals,
+				FaucetURL: "https://faucet.stable.xyz/faucet",
 			},
 		},
 		// Polygon Mainnet
@@ -190,10 +193,11 @@ var (
 		"eip155:421614": {
 			ChainID: ChainIDArbSepolia,
 			DefaultAsset: AssetInfo{
-				Address:  "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d", // USDC on ArbSepolia
-				Name:     "USD Coin",
-				Version:  "2",
-				Decimals: DefaultDecimals,
+				Address:   "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d", // USDC on ArbSepolia
+				Name:      "USD Coin",
+				Version:   "2",
+				Decimals:  DefaultDecimals,
+				FaucetURL: "https://faucet.circle.com/",
 			},
 		},
 	}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_STABLECOINS } from "@x402/evm";
 import { evmPaywall, getDefaultTokenDecimals } from "./evm";
 import { NETWORK_DECIMALS } from "./evm/gen/decimals";
+import { FAUCET_URLS } from "./evm/gen/faucetUrls";
 import { svmPaywall } from "./svm";
 import type { PaymentRequired, PaymentRequirements } from "./types";
 
@@ -139,6 +140,29 @@ describe("Network Handlers", () => {
 
       expect(html).toMatch(/faucetUrl:\s*undefined/);
     });
+
+    it("injects per-chain faucetUrls map into window.x402", () => {
+      const urls = {
+        "eip155:84532": "https://example.com/base-sepolia-faucet",
+        "eip155:421614": "https://example.com/arb-sepolia-faucet",
+      };
+      const html = evmPaywall.generateHtml(evmRequirement, mockPaymentRequired, {
+        testnet: true,
+        faucetUrls: urls,
+      });
+
+      expect(html).toContain("faucetUrls:");
+      expect(html).toContain("https://example.com/base-sepolia-faucet");
+      expect(html).toContain("https://example.com/arb-sepolia-faucet");
+    });
+
+    it("emits faucetUrls: undefined when not configured", () => {
+      const html = evmPaywall.generateHtml(evmRequirement, mockPaymentRequired, {
+        testnet: true,
+      });
+
+      expect(html).toMatch(/faucetUrls:\s*undefined/);
+    });
   });
 
   describe("getDefaultTokenDecimals", () => {
@@ -183,6 +207,21 @@ describe("Network Handlers", () => {
         Object.keys(DEFAULT_STABLECOINS).sort(),
       );
     });
+
+    it("FAUCET_URLS stays in sync with DEFAULT_STABLECOINS (only entries with faucetUrl populated)", () => {
+      // The generated `src/evm/gen/faucetUrls.ts` mirrors the `faucetUrl`
+      // field of `DEFAULT_STABLECOINS`, filtered to only chains with a
+      // populated value. This test pins the drift invariant — a forgotten
+      // `pnpm run build:paywall` after seeding/removing a `faucetUrl` is
+      // caught here.
+      const expected = Object.fromEntries(
+        Object.entries(DEFAULT_STABLECOINS)
+          .filter(([, info]) => typeof info.faucetUrl === "string" && info.faucetUrl.length > 0)
+          .map(([network, info]) => [network, info.faucetUrl as string]),
+      );
+
+      expect(FAUCET_URLS).toStrictEqual(expected);
+    });
   });
 
   describe("svmPaywall", () => {
@@ -215,6 +254,29 @@ describe("Network Handlers", () => {
 
       expect(html).toContain("<!DOCTYPE html>");
       expect(html).toMatch(/Solana Test|SVM Paywall/);
+    });
+
+    it("injects configured faucetUrl + faucetUrls into window.x402", () => {
+      const urls = {
+        "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1": "https://example.com/devnet-faucet",
+      };
+      const html = svmPaywall.generateHtml(svmRequirement, mockPaymentRequired, {
+        testnet: true,
+        faucetUrl: "https://example.com/global-faucet",
+        faucetUrls: urls,
+      });
+
+      expect(html).toContain("https://example.com/global-faucet");
+      expect(html).toContain("https://example.com/devnet-faucet");
+    });
+
+    it("emits faucetUrl/faucetUrls: undefined when not configured", () => {
+      const html = svmPaywall.generateHtml(svmRequirement, mockPaymentRequired, {
+        testnet: true,
+      });
+
+      expect(html).toMatch(/faucetUrl:\s*undefined/);
+      expect(html).toMatch(/faucetUrls:\s*undefined/);
     });
   });
 });

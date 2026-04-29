@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/x402-foundation/x402/go/mechanisms/evm"
+	svm "github.com/x402-foundation/x402/go/mechanisms/svm"
 	"github.com/x402-foundation/x402/go/types"
 )
 
@@ -322,4 +324,102 @@ func TestInjectPaywallConfig(t *testing.T) {
 			t.Error("expected resource URL as currentUrl fallback")
 		}
 	})
+
+	t.Run("injects FaucetURL when set", func(t *testing.T) {
+		config := &PaywallConfig{FaucetURL: "https://example.com/faucet"}
+		got := injectPaywallConfig(template, paymentReq, config)
+		if !strings.Contains(got, `faucetUrl: "https://example.com/faucet"`) {
+			t.Errorf("expected faucetUrl literal in output, got %q", got)
+		}
+	})
+
+	t.Run("emits faucetUrl: undefined when FaucetURL unset", func(t *testing.T) {
+		got := injectPaywallConfig(template, paymentReq, nil)
+		if !strings.Contains(got, "faucetUrl: undefined") {
+			t.Errorf("expected faucetUrl: undefined in output, got %q", got)
+		}
+	})
+
+	t.Run("injects FaucetURLs map when set", func(t *testing.T) {
+		config := &PaywallConfig{
+			FaucetURLs: map[string]string{
+				"eip155:84532":  "https://example.com/base-sepolia",
+				"eip155:421614": "https://example.com/arb-sepolia",
+			},
+		}
+		got := injectPaywallConfig(template, paymentReq, config)
+		if !strings.Contains(got, "faucetUrls:") {
+			t.Errorf("expected faucetUrls in output, got %q", got)
+		}
+		if !strings.Contains(got, "https://example.com/base-sepolia") {
+			t.Errorf("expected base-sepolia URL in output, got %q", got)
+		}
+		if !strings.Contains(got, "https://example.com/arb-sepolia") {
+			t.Errorf("expected arb-sepolia URL in output, got %q", got)
+		}
+	})
+
+	t.Run("emits faucetUrls: undefined when FaucetURLs unset", func(t *testing.T) {
+		got := injectPaywallConfig(template, paymentReq, nil)
+		if !strings.Contains(got, "faucetUrls: undefined") {
+			t.Errorf("expected faucetUrls: undefined in output, got %q", got)
+		}
+	})
+}
+
+// --- Registry seed tests ---
+
+func TestEVMRegistryFaucetURLSeeds(t *testing.T) {
+	// Pin the EVM registry seed values for chain-aware faucet URLs. Mirrors
+	// the TS-side `FAUCET_URLS` drift test against `DEFAULT_STABLECOINS`.
+	expected := map[string]string{
+		"eip155:84532":  "https://faucet.circle.com/",
+		"eip155:421614": "https://faucet.circle.com/",
+		"eip155:31611":  "https://faucet.test.mezo.org/",
+		"eip155:2201":   "https://faucet.stable.xyz/faucet",
+	}
+	for caip2, want := range expected {
+		config, ok := evm.NetworkConfigs[caip2]
+		if !ok {
+			t.Errorf("missing EVM NetworkConfig for %q", caip2)
+			continue
+		}
+		if config.DefaultAsset.FaucetURL != want {
+			t.Errorf("EVM FaucetURL for %q: got %q, want %q", caip2, config.DefaultAsset.FaucetURL, want)
+		}
+	}
+}
+
+func TestSVMRegistryFaucetURLSeeds(t *testing.T) {
+	// Pin the SVM registry seed values. Both Solana devnet and testnet point
+	// at Circle's faucet (which mints USDC on those networks).
+	expected := map[string]string{
+		svm.SolanaDevnetCAIP2:  "https://faucet.circle.com/",
+		svm.SolanaTestnetCAIP2: "https://faucet.circle.com/",
+	}
+	for caip2, want := range expected {
+		config, ok := svm.NetworkConfigs[caip2]
+		if !ok {
+			t.Errorf("missing SVM NetworkConfig for %q", caip2)
+			continue
+		}
+		if config.DefaultAsset.FaucetURL != want {
+			t.Errorf("SVM FaucetURL for %q: got %q, want %q", caip2, config.DefaultAsset.FaucetURL, want)
+		}
+	}
+}
+
+func TestEVMMainnetEntriesHaveNoFaucetURL(t *testing.T) {
+	// Mainnet entries leave FaucetURL empty by convention — the paywall
+	// faucet UI is testnet-gated and mainnet entries never render the link.
+	mainnets := []string{"eip155:8453", "eip155:42161", "eip155:137"}
+	for _, caip2 := range mainnets {
+		config, ok := evm.NetworkConfigs[caip2]
+		if !ok {
+			continue // not seeded; nothing to assert
+		}
+		if config.DefaultAsset.FaucetURL != "" {
+			t.Errorf("mainnet %q has unexpected FaucetURL %q", caip2, config.DefaultAsset.FaucetURL)
+		}
+	}
 }

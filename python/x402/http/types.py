@@ -126,13 +126,23 @@ class ProcessSettleResult:
 
 @dataclass
 class PaywallConfig:
-    """Configuration for paywall UI customization."""
+    """Configuration for paywall UI customization.
+
+    Faucet URL resolution precedence at render time (top wins):
+      1. ``faucet_urls[caip2]`` — per-chain override
+      2. ``faucet_url`` — global override
+      3. The mechanism's curated chain registry (``DEFAULT_STABLECOINS`` for
+         EVM) when the selected chain has a ``faucet_url`` populated
+      4. ``https://faucet.circle.com/`` — final hardcoded fallback
+    """
 
     app_name: str | None = None
     app_logo: str | None = None
     session_token_endpoint: str | None = None
     current_url: str | None = None
     testnet: bool = False
+    faucet_url: str | None = None
+    faucet_urls: dict[str, str] | None = None
 
 
 # Dynamic function types (supports both sync and async callbacks)

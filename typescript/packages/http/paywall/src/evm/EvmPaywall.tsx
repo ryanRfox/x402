@@ -12,6 +12,7 @@ import { getTokenBalance, getTokenDecimals } from "./utils";
 import { Spinner } from "./Spinner";
 import { getNetworkDisplayName, isTestnetNetwork } from "../paywallUtils";
 import { wagmiToClientSigner } from "./browserAdapter";
+import { FAUCET_URLS } from "./gen/faucetUrls";
 
 type EvmPaywallProps = {
   paymentRequired: PaymentRequired;
@@ -206,7 +207,12 @@ export function EvmPaywall({ paymentRequired, onSuccessfulResponse }: EvmPaywall
           <p className="instructions">
             Need {tokenName} on {chainName}?{" "}
             <a
-              href={x402.faucetUrl ?? "https://faucet.circle.com/"}
+              href={
+                x402.faucetUrls?.[network] ??
+                x402.faucetUrl ??
+                FAUCET_URLS[network] ??
+                "https://faucet.circle.com/"
+              }
               target="_blank"
               rel="noopener noreferrer"
             >

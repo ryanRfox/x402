@@ -13,6 +13,14 @@ export type DefaultAssetInfo = {
   version: string;
   /** Token decimal places (typically 6 for USDC) */
   decimals: number;
+  /**
+   * Optional faucet URL for this chain's default asset. Surfaces in the
+   * paywall's testnet "Need {token} on {chain}? Get some here." link when
+   * no consumer override is supplied. Only meaningful for testnet chains
+   * (mainnet entries leave this undefined since the paywall faucet UI is
+   * testnet-gated).
+   */
+  faucetUrl?: string;
 };
 
 /**
@@ -52,6 +60,7 @@ export const DEFAULT_STABLECOINS: Record<string, ExactDefaultAssetInfo> = {
     name: "USDC",
     version: "2",
     decimals: 6,
+    faucetUrl: "https://faucet.circle.com/",
   }, // Base Sepolia USDC
   "eip155:4326": {
     address: "0xFAfDdbb3FC7688494971a79cc65DCa3EF82079E7",
@@ -78,6 +87,7 @@ export const DEFAULT_STABLECOINS: Record<string, ExactDefaultAssetInfo> = {
     name: "USDT0",
     version: "1",
     decimals: 6,
+    faucetUrl: "https://faucet.stable.xyz/faucet",
   }, // Stable testnet USDT0
   "eip155:137": {
     address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
@@ -96,6 +106,7 @@ export const DEFAULT_STABLECOINS: Record<string, ExactDefaultAssetInfo> = {
     name: "USD Coin",
     version: "2",
     decimals: 6,
+    faucetUrl: "https://faucet.circle.com/",
   }, // Arbitrum Sepolia USDC
   "eip155:31611": {
     address: "0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503",
@@ -104,6 +115,7 @@ export const DEFAULT_STABLECOINS: Record<string, ExactDefaultAssetInfo> = {
     decimals: 18,
     assetTransferMethod: "permit2",
     supportsEip2612: true,
+    faucetUrl: "https://faucet.test.mezo.org/",
   }, // Mezo Testnet mUSD (no EIP-3009, supports EIP-2612)
 };
 

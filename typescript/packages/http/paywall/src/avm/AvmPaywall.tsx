@@ -8,6 +8,7 @@ import type { PaymentRequired } from "@x402/core/types";
 
 import { Spinner } from "./Spinner";
 import { getNetworkDisplayName, ALGORAND_NETWORK_REFS } from "../paywallUtils";
+import { FAUCET_URLS } from "./gen/faucetUrls";
 import { getAlgodClient } from "./algorand/rpc";
 
 type AvmPaywallProps = {
@@ -309,7 +310,12 @@ export function AvmPaywall({
           <p className="instructions">
             Need Algorand Testnet USDC?{" "}
             <a
-              href="https://dispenser.testnet.aws.algodev.network/"
+              href={
+                x402.faucetUrls?.[network] ??
+                x402.faucetUrl ??
+                FAUCET_URLS[network] ??
+                "https://dispenser.testnet.aws.algodev.network/"
+              }
               target="_blank"
               rel="noopener noreferrer"
             >

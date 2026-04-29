@@ -9,6 +9,7 @@ import type { PaymentRequired } from "@x402/core/types";
 
 import { Spinner } from "./Spinner";
 import { getNetworkDisplayName, SOLANA_NETWORK_REFS } from "../paywallUtils";
+import { FAUCET_URLS } from "./gen/faucetUrls";
 import { getStandardConnectFeature, getStandardDisconnectFeature } from "./solana/features";
 import { useSolanaBalance } from "./solana/useSolanaBalance";
 import { useSolanaSigner } from "./solana/useSolanaSigner";
@@ -228,7 +229,16 @@ export function SolanaPaywall({ paymentRequired, onSuccessfulResponse }: SolanaP
         {String(network).includes("devnet") && (
           <p className="instructions">
             Need Solana Devnet USDC?{" "}
-            <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer">
+            <a
+              href={
+                x402.faucetUrls?.[network] ??
+                x402.faucetUrl ??
+                FAUCET_URLS[network] ??
+                "https://faucet.circle.com/"
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Request some <u>here</u>.
             </a>
           </p>

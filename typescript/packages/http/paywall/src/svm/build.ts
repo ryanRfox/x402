@@ -2,6 +2,7 @@ import esbuild from "esbuild";
 import { htmlPlugin } from "@craftamap/esbuild-plugin-html";
 import fs from "fs";
 import path from "path";
+import { SOLANA_DEVNET_CAIP2, SOLANA_TESTNET_CAIP2 } from "@x402/svm";
 import { getBaseTemplate } from "../baseTemplate";
 import { formatTypeScript, toPythonStringLiteral } from "../genHelpers";
 
@@ -9,6 +10,22 @@ import { formatTypeScript, toPythonStringLiteral } from "../genHelpers";
 const DIST_DIR = "src/svm/dist";
 const OUTPUT_HTML = path.join(DIST_DIR, "svm-paywall.html");
 const OUTPUT_TS = path.join("src/svm/gen", "template.ts");
+const OUTPUT_FAUCETS = path.join("src/svm/gen", "faucetUrls.ts");
+
+/**
+ * Per-CAIP-2 testnet faucet URLs for Solana networks.
+ *
+ * Solana mechanism does not expose a `DEFAULT_STABLECOINS`-equivalent
+ * structure (its `mechanisms/svm/src/constants.ts` lists per-network mints
+ * as flat string constants). Faucet URLs are sourced inline from this
+ * map, regenerated to `src/svm/gen/faucetUrls.ts` so the paywall bundle
+ * has a runtime-dep-free lookup. Mainnet is intentionally absent — the
+ * paywall faucet UI is testnet-gated.
+ */
+const SVM_FAUCET_URLS: Record<string, string> = {
+  [SOLANA_DEVNET_CAIP2]: "https://faucet.circle.com/",
+  [SOLANA_TESTNET_CAIP2]: "https://faucet.circle.com/",
+};
 
 // Cross-language template output paths (relative to package root where build runs)
 const PYTHON_DIR = path.join("..", "..", "..", "..", "python", "x402", "http", "paywall");
@@ -100,6 +117,38 @@ const SVMPaywallTemplate = ${JSON.stringify(html)}
 
       fs.writeFileSync(OUTPUT_TS, tsContent);
       console.log(`[SVM] Generated template.ts (${(html.length / 1024 / 1024).toFixed(2)} MB)`);
+
+      // Generate the SVM faucet-URL lookup. Sourced from the inline
+      // `SVM_FAUCET_URLS` map above (Solana mechanism has no `DEFAULT_STABLECOINS`
+      // analogue, so the registry data lives here in the build script). Mirrors
+      // the EVM regen contract — emitted at build time so the bundle is
+      // runtime-dep-free.
+      const svmFaucetEntries = Object.entries(SVM_FAUCET_URLS)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([network, url]) => `  ${JSON.stringify(network)}: ${JSON.stringify(url)},`)
+        .join("\n");
+      const rawSvmFaucetsContent = `// THIS FILE IS AUTO-GENERATED - DO NOT EDIT
+// Source: \`SVM_FAUCET_URLS\` inline map in \`src/svm/build.ts\`.
+// Regenerate via: pnpm --filter @x402/paywall run build:paywall
+
+/**
+ * Per-network testnet faucet URLs for Solana, keyed by CAIP-2 network
+ * identifier. Solana mechanism has no \`DEFAULT_STABLECOINS\` parallel,
+ * so this map is curated inline in \`src/svm/build.ts\` rather than
+ * sourced from \`@x402/svm\`. Networks without a configured faucet URL
+ * are absent — callers should fall back to the paywall's hardcoded
+ * default (\`https://faucet.circle.com/\`) or to a consumer-provided
+ * override on \`PaywallConfig.faucetUrl\` / \`PaywallConfig.faucetUrls[caip2]\`.
+ */
+export const FAUCET_URLS: Record<string, string> = {
+${svmFaucetEntries}
+};
+`;
+      const svmFaucetsContent = await formatTypeScript(OUTPUT_FAUCETS, rawSvmFaucetsContent);
+      fs.writeFileSync(OUTPUT_FAUCETS, svmFaucetsContent);
+      console.log(
+        `[SVM] Generated faucetUrls.ts (${Object.keys(SVM_FAUCET_URLS).length} networks)`,
+      );
 
       // Write the Python template file
       if (fs.existsSync(PYTHON_DIR)) {
