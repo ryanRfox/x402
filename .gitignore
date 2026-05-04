@@ -37,3 +37,8 @@ TASK.md
 .claude/
 skills/
 REVIEW_PROMPT.md
+
+# Gas City
+.beads/*
+!.beads/config.yaml
+!.beads/metadata.json
