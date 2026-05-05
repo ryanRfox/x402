@@ -709,8 +709,7 @@ async function main(): Promise<PhaseResult[]> {
         // the channel's available escrow (balance - totalClaimed) is zero, but `balance`
         // itself equals the cumulative `totalClaimed` left in place for replay
         // protection on subsequent claims/refunds.
-        const availableAfterFinalize =
-          stateAfterFinalize.balance - stateAfterFinalize.totalClaimed;
+        const availableAfterFinalize = stateAfterFinalize.balance - stateAfterFinalize.totalClaimed;
         assertInvariant(
           "available escrow drained after finalize (balance - totalClaimed === 0)",
           availableAfterFinalize === 0n,
