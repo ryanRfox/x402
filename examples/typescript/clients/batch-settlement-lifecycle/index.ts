@@ -548,10 +548,16 @@ async function main(): Promise<PhaseResult[]> {
       );
       printDiff("payer USDC balance", fmtUsdc(usdcBeforeRefund), fmtUsdc(usdcAfterRefund));
 
+      // The contract's `balance` is the running deposit counter — it only decrements
+      // on refund/withdraw, not on claim. After a full cooperative refund the
+      // channel's available escrow (balance - totalClaimed) is zero, but `balance`
+      // itself equals the cumulative `totalClaimed` left in place for replay
+      // protection on subsequent claims/refunds.
+      const availableAfterRefund = onchainAfterRefund.balance - onchainAfterRefund.totalClaimed;
       assertInvariant(
-        "channel balance drained",
-        onchainAfterRefund.balance === 0n,
-        `balance=${onchainAfterRefund.balance}`,
+        "available escrow drained (balance - totalClaimed === 0)",
+        availableAfterRefund === 0n,
+        `balance=${onchainAfterRefund.balance}, totalClaimed=${onchainAfterRefund.totalClaimed}`,
       );
       assertInvariant(
         "payer USDC increased after refund",
@@ -561,8 +567,8 @@ async function main(): Promise<PhaseResult[]> {
       results.push({
         phase: 4,
         name: "Cooperative refund",
-        expected: "server claims, signs refund, balance returns to payer",
-        actual: `balance ${fmtUsdc(onchainAfterClaim.balance)} -> 0; payer +${fmtUsdc(usdcAfterRefund - usdcBeforeRefund)}`,
+        expected: "server claims, signs refund, available escrow returns to payer",
+        actual: `available ${fmtUsdc(onchainAfterClaim.balance - onchainAfterClaim.totalClaimed)} -> 0; payer +${fmtUsdc(usdcAfterRefund - usdcBeforeRefund)}`,
         passed: true,
       });
     }
@@ -698,9 +704,17 @@ async function main(): Promise<PhaseResult[]> {
           "pending withdraw cleared after finalize",
           stateAfterFinalize.pendingWithdrawAmount === 0n,
         );
+        // The contract's `balance` is the running deposit counter — it only decrements
+        // on refund/withdraw, not on claim. After a full unilateral finalize-withdraw
+        // the channel's available escrow (balance - totalClaimed) is zero, but `balance`
+        // itself equals the cumulative `totalClaimed` left in place for replay
+        // protection on subsequent claims/refunds.
+        const availableAfterFinalize =
+          stateAfterFinalize.balance - stateAfterFinalize.totalClaimed;
         assertInvariant(
-          "channel balance drained after finalize",
-          stateAfterFinalize.balance === 0n,
+          "available escrow drained after finalize (balance - totalClaimed === 0)",
+          availableAfterFinalize === 0n,
+          `balance=${stateAfterFinalize.balance}, totalClaimed=${stateAfterFinalize.totalClaimed}`,
         );
         assertInvariant(
           "payer USDC increased after finalize",

@@ -704,9 +704,17 @@ async function main(): Promise<PhaseResult[]> {
           "pending withdraw cleared after finalize",
           stateAfterFinalize.pendingWithdrawAmount === 0n,
         );
+        // The contract's `balance` is the running deposit counter — it only decrements
+        // on refund/withdraw, not on claim. After a full unilateral finalize-withdraw
+        // the channel's available escrow (balance - totalClaimed) is zero, but `balance`
+        // itself equals the cumulative `totalClaimed` left in place for replay
+        // protection on subsequent claims/refunds.
+        const availableAfterFinalize =
+          stateAfterFinalize.balance - stateAfterFinalize.totalClaimed;
         assertInvariant(
-          "channel balance drained after finalize",
-          stateAfterFinalize.balance === 0n,
+          "available escrow drained after finalize (balance - totalClaimed === 0)",
+          availableAfterFinalize === 0n,
+          `balance=${stateAfterFinalize.balance}, totalClaimed=${stateAfterFinalize.totalClaimed}`,
         );
         assertInvariant(
           "payer mUSD increased after finalize",
