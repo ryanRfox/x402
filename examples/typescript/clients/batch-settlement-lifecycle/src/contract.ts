@@ -13,6 +13,7 @@ export interface ReadContractClient {
     abi: readonly unknown[];
     functionName: string;
     args?: readonly unknown[];
+    blockNumber?: bigint;
   }) => Promise<unknown>;
 }
 
@@ -47,6 +48,51 @@ export type ChannelConfigTuple = readonly [
   Hex, // salt (bytes32)
 ];
 
+/** viem `readContract` parameters as accepted by {@link ReadContractClient}. */
+type ReadContractParams = Parameters<ReadContractClient["readContract"]>[0];
+
+/**
+ * Reads a contract method with retry on "block not found" errors.
+ *
+ * When `blockNumber` pins a read to a specific block on a load-balanced
+ * public RPC, the request can land on a node that has not yet ingested
+ * that block — viem surfaces this as ResourceNotFoundRpcError(-32001) with
+ * `details: 'block not found: 0x...'`. The lagging node typically catches
+ * up within a few hundred ms, so we retry with backoff. Errors unrelated
+ * to block availability (and any failure when no `blockNumber` was passed)
+ * propagate immediately.
+ *
+ * @param publicClient - Public client used to issue the read.
+ * @param params - viem `readContract` parameters, including optional `blockNumber` pin.
+ * @returns The decoded return value of the contract call.
+ */
+async function readContractWithBlockSync(
+  publicClient: ReadContractClient,
+  params: ReadContractParams,
+): Promise<unknown> {
+  const maxAttempts = 14;
+  const baseDelayMs = 200;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await publicClient.readContract(params);
+    } catch (err) {
+      if (params.blockNumber === undefined) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      const details = (err as { details?: unknown })?.details;
+      const detailsStr = typeof details === "string" ? details : "";
+      const isBlockNotFound =
+        message.includes("block not found") || detailsStr.includes("block not found");
+      if (!isBlockNotFound) throw err;
+      lastErr = err;
+      if (attempt === maxAttempts - 1) break;
+      const delay = Math.min(baseDelayMs * Math.pow(1.5, attempt), 2000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * Snapshot of one channel's onchain accounting.
  */
@@ -66,24 +112,30 @@ export interface OnchainChannelState {
  *
  * @param publicClient - Base Sepolia public client.
  * @param channelId - The bytes32 channel id to query.
+ * @param blockNumber - Optional block to pin both reads to. Use the receipt
+ *   blockNumber from a mutating tx to defeat load-balanced-RPC staleness
+ *   where a follow-up `latest` read can land on a node still 1 block behind.
  * @returns Composite snapshot with balance, claimed amount, and pending withdraw info.
  */
 export async function readOnchainChannelState(
   publicClient: ReadContractClient,
   channelId: Hex,
+  blockNumber?: bigint,
 ): Promise<OnchainChannelState> {
   const [channelTuple, pendingTuple] = await Promise.all([
-    publicClient.readContract({
+    readContractWithBlockSync(publicClient, {
       address: BATCH_SETTLEMENT_ADDRESS,
       abi: batchSettlementAbi,
       functionName: "channels",
       args: [channelId],
+      blockNumber,
     }),
-    publicClient.readContract({
+    readContractWithBlockSync(publicClient, {
       address: BATCH_SETTLEMENT_ADDRESS,
       abi: batchSettlementAbi,
       functionName: "pendingWithdrawals",
       args: [channelId],
+      blockNumber,
     }),
   ]);
 
@@ -174,17 +226,21 @@ export async function finalizeWithdraw(
  * @param publicClient - Base Sepolia public client.
  * @param token - Token address.
  * @param holder - Wallet whose balance is read.
+ * @param blockNumber - Optional block to pin the read to (see
+ *   {@link readOnchainChannelState} for rationale).
  * @returns Balance in token base units.
  */
 export async function readErc20Balance(
   publicClient: ReadContractClient,
   token: Address,
   holder: Address,
+  blockNumber?: bigint,
 ): Promise<bigint> {
-  return (await publicClient.readContract({
+  return (await readContractWithBlockSync(publicClient, {
     address: token,
     abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
     functionName: "balanceOf",
     args: [holder],
+    blockNumber,
   })) as bigint;
 }

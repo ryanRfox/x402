@@ -529,11 +529,29 @@ async function main(): Promise<PhaseResult[]> {
       const refundSettle = await client1.scheme.refund(url1);
       console.log(`  refund tx: ${refundSettle.transaction ?? "(none)"}`);
 
-      const onchainAfterRefund = await readOnchainChannelState(publicClient, channel1Id);
+      // Pin the post-refund readbacks to the receipt's block. waitForTransactionReceipt
+      // alone is insufficient on load-balanced public RPCs (e.g. https://sepolia.base.org):
+      // it polls until *some* node returns the receipt, but the next readContract can
+      // land on a different node still 1 block behind. Block-pinning forces every node
+      // to either serve that exact block or return an error.
+      let refundReceiptBlock: bigint | undefined;
+      if (refundSettle.transaction) {
+        const refundReceipt = await publicClient.waitForTransactionReceipt({
+          hash: refundSettle.transaction as `0x${string}`,
+        });
+        refundReceiptBlock = refundReceipt.blockNumber;
+      }
+
+      const onchainAfterRefund = await readOnchainChannelState(
+        publicClient,
+        channel1Id,
+        refundReceiptBlock,
+      );
       const usdcAfterRefund = await readErc20Balance(
         publicClient,
         USDC_BASE_SEPOLIA,
         env.payerAccount.address,
+        refundReceiptBlock,
       );
       console.log("\n  After refund:");
       printDiff(
@@ -633,8 +651,17 @@ async function main(): Promise<PhaseResult[]> {
       );
       console.log(`  initiateWithdraw tx: ${initiateTx}`);
       await wallet.waitForTransactionReceipt({ hash: initiateTx });
+      // See Phase 4 comment: pin readback to the receipt's block to defeat
+      // load-balanced-RPC staleness.
+      const initiateReceipt = await publicClient.waitForTransactionReceipt({
+        hash: initiateTx,
+      });
 
-      const stateAfterInit = await readOnchainChannelState(publicClient, channel2Id);
+      const stateAfterInit = await readOnchainChannelState(
+        publicClient,
+        channel2Id,
+        initiateReceipt.blockNumber,
+      );
       console.log(
         `  pendingWithdrawals: amount=${fmtUsdc(stateAfterInit.pendingWithdrawAmount)} initiatedAt=${stateAfterInit.pendingWithdrawInitiatedAt} (epoch s)`,
       );
@@ -681,12 +708,22 @@ async function main(): Promise<PhaseResult[]> {
         const finalizeTx = await finalizeWithdraw(wallet, env.payerAccount, tuple);
         console.log(`  finalizeWithdraw tx: ${finalizeTx}`);
         await wallet.waitForTransactionReceipt({ hash: finalizeTx });
+        // See Phase 4 comment: pin readbacks to the receipt's block to defeat
+        // load-balanced-RPC staleness.
+        const finalizeReceipt = await publicClient.waitForTransactionReceipt({
+          hash: finalizeTx,
+        });
 
-        const stateAfterFinalize = await readOnchainChannelState(publicClient, channel2Id);
+        const stateAfterFinalize = await readOnchainChannelState(
+          publicClient,
+          channel2Id,
+          finalizeReceipt.blockNumber,
+        );
         const usdcAfterFinalize = await readErc20Balance(
           publicClient,
           USDC_BASE_SEPOLIA,
           env.payerAccount.address,
+          finalizeReceipt.blockNumber,
         );
         printDiff(
           "onchain.balance",
