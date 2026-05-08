@@ -49,7 +49,7 @@ async function main(): Promise<void> {
   // Step 2: Set up x402 resource server for payment handling
   const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
   const resourceServer = new x402ResourceServer(facilitatorClient);
-  resourceServer.register("eip155:84532", new ExactEvmScheme());
+  resourceServer.register("eip155:*", new ExactEvmScheme());
   await resourceServer.initialize();
 
   // Step 3: Build payment requirements
