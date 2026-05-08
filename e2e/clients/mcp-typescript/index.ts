@@ -23,6 +23,7 @@ interface E2EResult {
 const serverUrl = process.env.RESOURCE_SERVER_URL as string;
 const endpointPath = process.env.ENDPOINT_PATH as string; // tool name, e.g. "get_weather"
 const evmPrivateKey = process.env.EVM_PRIVATE_KEY as `0x${string}`;
+const evmNetwork = (process.env.EVM_NETWORK || "eip155:84532") as `${string}:${string}`;
 
 if (!serverUrl || !endpointPath || !evmPrivateKey) {
   const result: E2EResult = {
@@ -42,7 +43,7 @@ async function main(): Promise<void> {
   const x402Mcp = createx402MCPClient({
     name: "x402-mcp-e2e-client",
     version: "1.0.0",
-    schemes: [{ network: "eip155:84532", client: new ExactEvmScheme(evmSigner, evmSchemeOptions) }],
+    schemes: [{ network: evmNetwork, client: new ExactEvmScheme(evmSigner, evmSchemeOptions) }],
     autoPayment: true,
     onPaymentRequested: async () => true, // Auto-approve all payments for e2e
   });
