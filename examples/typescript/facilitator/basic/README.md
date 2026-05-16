@@ -23,6 +23,18 @@ and fill required environment variables:
 - `SVM_PRIVATE_KEY` - Solana facilitator private key
 - `PORT` - Server port (optional, defaults to 4022)
 
+Optional environment variables:
+
+- `EVM_NETWORK` _(recommended for testnet exploration)_ - CAIP-2 EVM network the
+  facilitator settles on. Default is `eip155:84532` (Base Sepolia). Chains shipped
+  in viem's chain database (and present in
+  [`DEFAULT_STABLECOINS`](../../../../typescript/packages/mechanisms/evm/src/shared/defaultAssets.ts))
+  just work — e.g. `eip155:8453` for Base Mainnet. For chains viem doesn't ship a
+  default RPC for (or to use a custom RPC), set `EVM_RPC_URL`. The Solana accept
+  stays on Solana Devnet by default.
+- `EVM_RPC_URL` - Custom RPC URL override. Required for chains where viem ships no
+  default RPC (e.g. Mezo Testnet `eip155:31611`).
+
 **⚠️ Security Note:** The facilitator key is the signer used to settle payments on-chain. Keep it separate from your seller `payTo` wallet and buyer test wallets, and make sure it is funded only for facilitator gas/fees.
 
 2. Install and build all packages from the typescript examples root:

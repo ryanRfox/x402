@@ -26,6 +26,17 @@ Then fill required environment variables:
 
 - `EVM_PRIVATE_KEY` - Ethereum private key used by the embedded facilitator
 
+Optional environment variables:
+
+- `EVM_NETWORK` *(recommended for testnet exploration)* - CAIP-2 EVM network the embedded
+  facilitator operates on. Default is `eip155:84532` (Base Sepolia). Chains shipped
+  in viem's chain database (and present in
+  [`DEFAULT_STABLECOINS`](../../../../typescript/packages/mechanisms/evm/src/shared/defaultAssets.ts))
+  just work — e.g. `eip155:8453` for Base Mainnet. For chains viem doesn't ship a
+  default RPC for (or to use a custom RPC), set `EVM_RPC_URL`.
+- `EVM_RPC_URL` - Custom RPC URL override. Required for chains where viem ships no
+  default RPC (e.g. Mezo Testnet `eip155:31611`).
+
 2. Install and build all packages from the TypeScript examples root:
 
 ```bash

@@ -18,8 +18,12 @@ if (!facilitatorUrl) {
 }
 const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
 
+// CAIP-2 EVM network selection. Default is Base Sepolia (eip155:84532); set
+// EVM_NETWORK to point at any EVM chain in @x402/evm's DEFAULT_STABLECOINS.
+const EVM_NETWORK = (process.env.EVM_NETWORK ?? "eip155:84532") as `${string}:${string}`;
+
 const resourceServer = new x402ResourceServer(facilitatorClient)
-  .register("eip155:84532", new ExactEvmScheme())
+  .register(EVM_NETWORK, new ExactEvmScheme())
   .onBeforeVerify(async context => {
     console.log("Before verify hook", context);
     // Abort verification by returning { abort: true, reason: string }
@@ -54,7 +58,7 @@ app.use(
         accepts: {
           scheme: "exact",
           price: "$0.001",
-          network: "eip155:84532",
+          network: EVM_NETWORK,
           payTo: evmAddress,
         },
         description: "Weather data",

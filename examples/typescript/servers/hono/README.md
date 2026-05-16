@@ -48,6 +48,14 @@ and fill required environment variables:
 - `EVM_ADDRESS` - Ethereum address to receive payments
 - `SVM_ADDRESS` - Solana address to receive payments
 
+Optional environment variables:
+
+- `EVM_NETWORK` *(recommended for testnet exploration)* - CAIP-2 EVM network the route accepts.
+  Default is `eip155:84532` (Base Sepolia). Set to any chain in
+  [`DEFAULT_STABLECOINS`](../../../../typescript/packages/mechanisms/evm/src/shared/defaultAssets.ts)
+  to retarget the demo — e.g. `eip155:8453` for Base Mainnet, `eip155:31611` for
+  Mezo Testnet. The SVM accept stays on Solana Devnet by default.
+
 2. Install and build all packages from the typescript examples root:
 
 ```bash

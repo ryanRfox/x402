@@ -64,6 +64,10 @@ and fill required environment variables:
 
 > **Hedera Testnet:** Get testnet HBAR from the [Hedera Faucet](https://portal.hedera.com/faucet).
 
+Optional environment variables (apply to the `dynamic-price`, `dynamic-pay-to`, `hooks`, and `custom-money-definition` demos):
+
+- `EVM_NETWORK` _(recommended for testnet exploration)_ - CAIP-2 EVM network the route accepts. Default is `eip155:84532` (Base Sepolia). Set to any chain in [`DEFAULT_STABLECOINS`](../../../../typescript/packages/mechanisms/evm/src/shared/defaultAssets.ts) to retarget the demo. The `custom-money-definition` demo also keeps a separate `eip155:100` (Gnosis Chain) literal as part of the registerMoneyParser teaching surface — that literal is intentional and not driven by `EVM_NETWORK`.
+
 2. Install and build all packages from the typescript examples root:
 
 ```bash

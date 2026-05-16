@@ -19,6 +19,13 @@ if (!facilitatorUrl) {
 }
 const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
 
+// CAIP-2 EVM network selection for the route. Default is Base Sepolia (eip155:84532);
+// set EVM_NETWORK to point at any EVM chain in @x402/evm's DEFAULT_STABLECOINS.
+// NOTE: the eip155:100 (Gnosis Chain) literal below is intentional — it teaches
+// the registerMoneyParser pattern for a custom-chain asset, independent of the
+// route's chain selection.
+const EVM_NETWORK = (process.env.EVM_NETWORK ?? "eip155:84532") as `${string}:${string}`;
+
 const app = express();
 
 app.use(
@@ -28,7 +35,7 @@ app.use(
         accepts: {
           scheme: "exact",
           price: "$0.001",
-          network: "eip155:84532",
+          network: EVM_NETWORK,
           payTo: evmAddress,
         },
         description: "Weather data",
@@ -36,7 +43,7 @@ app.use(
       },
     },
     new x402ResourceServer(facilitatorClient).register(
-      "eip155:84532",
+      EVM_NETWORK,
       new ExactEvmScheme().registerMoneyParser(async (amount, network) => {
         // Custom money parser such that on the Gnosis Chain (xDai) network, we use Wrapped XDAI (WXDAI) when describing money
         // NOTE: Wrapped XDAI is not an EIP-3009 complaint token, and would fail the current ExactEvm implementation. This example is for demonstration purposes

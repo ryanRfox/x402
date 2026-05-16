@@ -39,15 +39,20 @@ if (!facilitatorUrl) {
   process.exit(1);
 }
 
+// CAIP-2 EVM network selection. Default is Base Sepolia (eip155:84532); set
+// EVM_NETWORK to point at any EVM chain in @x402/evm's DEFAULT_STABLECOINS.
+const EVM_NETWORK = (process.env.EVM_NETWORK ?? "eip155:84532") as `${string}:${string}`;
+
 console.log("\n🔧 Custom x402 Server Implementation");
 console.log("This example demonstrates manual payment handling without middleware.\n");
 console.log(`✅ Payment address: ${evmAddress}`);
-console.log(`✅ Facilitator: ${facilitatorUrl}\n`);
+console.log(`✅ Facilitator: ${facilitatorUrl}`);
+console.log(`✅ Network: ${EVM_NETWORK}\n`);
 
 // Create facilitator client and resource server
 const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
 const resourceServer = new x402ResourceServer(facilitatorClient).register(
-  "eip155:84532",
+  EVM_NETWORK,
   new ExactEvmScheme(),
 );
 
@@ -61,7 +66,7 @@ const routeConfigs: Record<string, RoutePaymentConfig> = {
   "GET /weather": {
     scheme: "exact",
     price: "$0.001",
-    network: "eip155:84532",
+    network: EVM_NETWORK,
     payTo: evmAddress,
     description: "Weather data",
     mimeType: "application/json",

@@ -19,6 +19,10 @@ if (!facilitatorUrl) {
 }
 const facilitatorClient = new HTTPFacilitatorClient({ url: facilitatorUrl });
 
+// CAIP-2 EVM network selection. Default is Base Sepolia (eip155:84532); set
+// EVM_NETWORK to point at any EVM chain in @x402/evm's DEFAULT_STABLECOINS.
+const EVM_NETWORK = (process.env.EVM_NETWORK ?? "eip155:84532") as `${string}:${string}`;
+
 const app = express();
 
 // The "upto" scheme authorizes up to a maximum amount but settles only what you specify.
@@ -32,7 +36,7 @@ app.use(
         accepts: {
           scheme: "upto",
           price: maxPrice,
-          network: "eip155:84532",
+          network: EVM_NETWORK,
           payTo: evmAddress,
         },
         description: "AI text generation — billed by token usage",
@@ -42,7 +46,7 @@ app.use(
         },
       },
     },
-    new x402ResourceServer(facilitatorClient).register("eip155:84532", new UptoEvmScheme()),
+    new x402ResourceServer(facilitatorClient).register(EVM_NETWORK, new UptoEvmScheme()),
   ),
 );
 

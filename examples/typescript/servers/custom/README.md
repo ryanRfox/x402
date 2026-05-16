@@ -46,6 +46,10 @@ and fill required environment variables:
 - `FACILITATOR_URL` - Facilitator endpoint URL
 - `EVM_ADDRESS` - Ethereum address to receive payments
 
+Optional environment variables:
+
+- `EVM_NETWORK` _(recommended for testnet exploration)_ - CAIP-2 EVM network the route accepts. Default is `eip155:84532` (Base Sepolia). Set to any chain in [`DEFAULT_STABLECOINS`](../../../../typescript/packages/mechanisms/evm/src/shared/defaultAssets.ts) to retarget the demo.
+
 2. Install and build all packages from the typescript examples root:
 
 ```bash

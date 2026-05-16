@@ -13,6 +13,10 @@ if (!evmAddress || !svmAddress) {
   process.exit(1);
 }
 
+// CAIP-2 EVM network selection. Default is Base Sepolia (eip155:84532); set
+// EVM_NETWORK to point at any EVM chain in @x402/evm's DEFAULT_STABLECOINS.
+const EVM_NETWORK = (process.env.EVM_NETWORK ?? "eip155:84532") as `${string}:${string}`;
+
 const facilitatorUrl = process.env.FACILITATOR_URL;
 if (!facilitatorUrl) {
   console.error("❌ FACILITATOR_URL environment variable is required");
@@ -30,7 +34,7 @@ paymentMiddleware(
         {
           scheme: "exact",
           price: "$0.001",
-          network: "eip155:84532",
+          network: EVM_NETWORK,
           payTo: evmAddress,
         },
         {
@@ -45,7 +49,7 @@ paymentMiddleware(
     },
   },
   new x402ResourceServer(facilitatorClient)
-    .register("eip155:84532", new ExactEvmScheme())
+    .register(EVM_NETWORK, new ExactEvmScheme())
     .register("solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1", new ExactSvmScheme()),
 );
 

@@ -5,9 +5,9 @@ import { registerExactEvmScheme } from "@x402/evm/exact/facilitator";
 import { ExactEvmScheme as ExactEvmServerScheme } from "@x402/evm/exact/server";
 import { config } from "dotenv";
 import express from "express";
-import { createWalletClient, http, publicActions } from "viem";
+import { type Chain, createWalletClient, defineChain, http, publicActions } from "viem";
+import * as allChains from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
 
 config();
 
@@ -16,13 +16,48 @@ if (!process.env.EVM_PRIVATE_KEY) {
   process.exit(1);
 }
 
+// CAIP-2 EVM network selection. Default is Base Sepolia (eip155:84532); set
+// EVM_NETWORK to point at any EVM chain. EVM_RPC_URL overrides viem's chain
+// default RPC (required for chains viem doesn't ship with a public RPC).
+const EVM_NETWORK = (process.env.EVM_NETWORK ?? "eip155:84532") as `${string}:${string}`;
+
+/**
+ * Map a CAIP-2 EVM identifier to a viem `Chain`. Falls back to a minimal
+ * `defineChain` so chains viem hasn't packaged still work for callers
+ * supplying their own EVM_RPC_URL.
+ *
+ * @param caip2 - CAIP-2 EVM identifier (e.g. "eip155:84532")
+ * @returns viem Chain object suitable for createWalletClient/createPublicClient
+ */
+function resolveViemChain(caip2: string): Chain {
+  const [namespace, ref] = caip2.split(":");
+  if (namespace !== "eip155") {
+    throw new Error(`resolveViemChain: not an EVM network: ${caip2}`);
+  }
+  const chainId = Number(ref);
+  if (!Number.isInteger(chainId) || chainId <= 0) {
+    throw new Error(`resolveViemChain: invalid EVM chain id in ${caip2}`);
+  }
+  const known = (Object.values(allChains) as Chain[]).find(c => c.id === chainId);
+  if (known) return known;
+  return defineChain({
+    id: chainId,
+    name: `EVM ${chainId}`,
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    rpcUrls: { default: { http: [] } },
+  });
+}
+
+const evmChain = resolveViemChain(EVM_NETWORK);
+const evmRpcUrl = process.env.EVM_RPC_URL?.trim() || evmChain.rpcUrls.default?.http?.[0] || "";
+
 const evmAccount = privateKeyToAccount(process.env.EVM_PRIVATE_KEY as `0x${string}`);
 
 // 1) Build facilitator signer from an on-chain client.
 const viemClient = createWalletClient({
   account: evmAccount,
-  chain: baseSepolia,
-  transport: http(),
+  chain: evmChain,
+  transport: http(evmRpcUrl || undefined),
 }).extend(publicActions);
 
 const evmSigner = toFacilitatorEvmSigner({
@@ -39,7 +74,7 @@ const evmSigner = toFacilitatorEvmSigner({
 const facilitator = new x402Facilitator();
 registerExactEvmScheme(facilitator, {
   signer: evmSigner,
-  networks: "eip155:84532", // Base Sepolia
+  networks: EVM_NETWORK,
 });
 
 // 3) Use standard express middleware wired to the local facilitator.
@@ -53,7 +88,7 @@ app.use(
           {
             scheme: "exact",
             price: "$0.001",
-            network: "eip155:84532",
+            network: EVM_NETWORK,
             payTo: evmAccount.address,
           },
         ],
@@ -65,7 +100,7 @@ app.use(
       verify: facilitator.verify.bind(facilitator),
       settle: facilitator.settle.bind(facilitator),
       getSupported: async () => facilitator.getSupported(),
-    }).register("eip155:84532", new ExactEvmServerScheme()),
+    }).register(EVM_NETWORK, new ExactEvmServerScheme()),
   ),
 );
 
