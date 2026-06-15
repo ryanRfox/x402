@@ -50,6 +50,7 @@ from .utils import (
     encode_payment_required_header,
     encode_payment_response_header,
     htmlsafe_json_dumps,
+    resolve_display_decimals,
 )
 
 if TYPE_CHECKING:
@@ -886,8 +887,11 @@ class x402HTTPServerBase:
         if payment_required.accepts:
             first = payment_required.accepts[0]
             if hasattr(first, "amount") and first.amount:
+                decimals = resolve_display_decimals(
+                    getattr(first, "network", None), getattr(first, "asset", None)
+                )
                 try:
-                    return float(first.amount) / 1_000_000  # USDC 6 decimals
+                    return float(first.amount) / (10**decimals)
                 except (ValueError, TypeError):
                     pass
         return 0.0

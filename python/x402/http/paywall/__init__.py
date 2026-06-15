@@ -35,7 +35,7 @@ import html
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
-from ..utils import htmlsafe_json_dumps
+from ..utils import htmlsafe_json_dumps, resolve_display_decimals
 
 if TYPE_CHECKING:
     from ...schemas import PaymentRequired
@@ -116,8 +116,11 @@ def _get_display_amount(payment_required: PaymentRequired) -> float:
         first = payment_required.accepts[0]
         amount = getattr(first, "amount", None)
         if amount:
+            decimals = resolve_display_decimals(
+                getattr(first, "network", None), getattr(first, "asset", None)
+            )
             try:
-                return float(amount) / 1_000_000  # USDC 6 decimals
+                return float(amount) / (10**decimals)
             except (ValueError, TypeError):
                 pass
     return 0.0

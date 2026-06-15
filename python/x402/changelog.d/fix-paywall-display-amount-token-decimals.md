@@ -1,0 +1,1 @@
+Fix paywall display amount for non-6-decimal default assets: the amount is now converted using the token's decimals (e.g. 18 for Mezo mUSD and MegaETH MegaUSD) instead of a hardcoded 1e6, which previously rendered 18-decimal amounts off by a factor of 1e12

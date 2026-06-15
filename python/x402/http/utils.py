@@ -131,3 +131,34 @@ def htmlsafe_json_dumps(obj: Any) -> str:
         ord("&"): "\\u0026",
     }
     return json.dumps(obj).translate(_json_script_escapes)
+
+
+def resolve_display_decimals(network: object, asset: object) -> int:
+    """Resolve a token's decimal places for human-readable display.
+
+    The on-wire ``amount`` is expressed in the token's smallest unit, so the
+    paywall must divide by ``10 ** decimals`` to show a USD-style value. This
+    mirrors the TypeScript paywall, which looks decimals up from the network's
+    default asset rather than assuming 6 (USDC). Defaulting to 6 renders an
+    18-decimal token (e.g. mUSD on Mezo, MegaUSD on MegaETH) off by a factor of
+    1e12.
+
+    Defaults to 6 when ``network``/``asset`` are missing, the asset is not the
+    registered default for its network, or the optional EVM extra is not
+    installed — preserving the prior behaviour for USDC and unknown tokens.
+
+    Args:
+        network: CAIP-2 network identifier (e.g. ``"eip155:31611"``).
+        asset: Token contract address (``0x...``).
+
+    Returns:
+        The token's decimal places, or 6 as a safe default.
+    """
+    if not network or not asset:
+        return 6
+    try:
+        from ..mechanisms.evm.utils import get_asset_info
+
+        return int(get_asset_info(str(network), str(asset))["decimals"])
+    except (ValueError, KeyError, ImportError):
+        return 6
